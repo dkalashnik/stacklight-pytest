@@ -130,13 +130,34 @@ client = OfficialClientManager().get_compute_client(
     identity_url=OS_AUTH_URL)
 
 
-ssh_client = GeneralActionsClient('10.109.5.2','root','r00tme')
-OKAY_STATUS = 0  #
+#ssh_client = GeneralActionsClient('10.109.0.2','root', password='r00tme')
+# Get it from master node at /root/.ssh/id_rsa
+pkey = open('./fixtures/id_rsa').read()
+ssh_client = GeneralActionsClient('10.109.0.3',
+                                  'root',
+                                  private_key=pkey)
+
+OKAY_STATUS = 0 #
+WARNING_STATUS = 1
+UNKNOWN_STATUS = 2
+CRITICAL_STATUS = 3
+DOWN_STATUS = 4
+
+RABBITMQ_DISK_WARNING_PERCENT = 99.99
+RABBITMQ_DISK_CRITICAL_PERCENT = 100
+RABBITMQ_MEMORY_WARNING_VALUE = 1.01
+RABBITMQ_MEMORY_CRITICAL_VALUE = 1.0001
+
+
 INFLUXDB_GRAFANA = InfluxdbPluginApi()
 # TEST grafana api
 
 
-def check_rabbit_mq_disk_alarms(controller, status, percent, timeout=60):
+def check_rabbit_mq_disk_alarms(controller,
+                                status,
+                                percent,
+                                ssh_client,
+                                timeout=60):
     """
 
     :param controller:
@@ -144,24 +165,25 @@ def check_rabbit_mq_disk_alarms(controller, status, percent, timeout=60):
     :param percent:
     :param timeout:
     """
-    cmd = ("rabbitmqctl set_disk_free_limit $(df | grep /dev/dm-4 | "
-           "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
-           "{percent} / 100) - $3))}}')")
     check_alarms("service", "rabbitmq-cluster", "disk",
                  controller["hostname"], OKAY_STATUS, timeout=timeout)
-    return
-    # TODO SSH !
-    with self.fuel_web.get_ssh_for_nailgun_node(controller) as remote:
-        default_value = remote.check_call(
-            "rabbitmqctl environment | grep disk_free_limit | "
-            "sed -r 's/}.+//' | sed 's|.*,||'")['stdout'][0].rstrip()
-        remote.check_call(cmd.format(percent=percent))
-        self.check_alarms("service", "rabbitmq-cluster", "disk",
-                          controller["hostname"], status)
-        remote.check_call("rabbitmqctl set_disk_free_limit {}".format(
-            default_value))
-        self.check_alarms("service", "rabbitmq-cluster", "disk",
-                          controller["hostname"], OKAY_STATUS)
+    default_value = ssh_client.execute(
+        "rabbitmqctl environment | grep disk_free_limit | "
+        "sed -r 's/}.+//' | sed 's|.*,||'").rstrip()
+
+    cmd = ("rabbitmqctl -n rabbit@messaging-node-3 set_disk_free_limit $(df | grep /dev/dm- | "
+           "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
+           "{percent} / 100) - $3))}}')")
+    ssh_client.execute(cmd.format(percent=percent))
+    check_alarms("service", "rabbitmq-cluster", "disk",
+                 controller["hostname"], status)
+    ssh_client.execute(
+        "rabbitmqctl set_disk_free_limit {}".format(default_value))
+    check_alarms("service",
+                 "rabbitmq-cluster",
+                 "disk",
+                 controller["hostname"],
+                 OKAY_STATUS)
 
 
 def check_alarms(alarm_type, filter_value, source, hostname,
@@ -239,8 +261,12 @@ def wait(predicate, interval=5, timeout=60, timeout_msg="Waiting timed out"):
 
     return timeout + start_time - time.time()
 
+
 if __name__ == '__main__':
-    import ipdb;ipdb.set_trace()
-    check_rabbit_mq_disk_alarms({'hostname': 'node-3'}, None, None)
-    # ssh_client.get_date()
+    check_rabbit_mq_disk_alarms(
+        {'hostname': 'node-3'},
+        WARNING_STATUS,
+        RABBITMQ_DISK_WARNING_PERCENT,
+        ssh_client)
+    ssh_client.get_date()
     # client.flavors.list()

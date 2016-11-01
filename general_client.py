@@ -8,10 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class GeneralActionsClient(object):
-    def __init__(self, address, username, password):
+    def __init__(self, address, username,
+                 password=None,
+                 private_key=None):
         self.transport = ssh_transport.SSHTransport(address,
                                                     username,
-                                                    password=password)
+                                                    password=password,
+                                                    private_key=private_key)
 
     @property
     def hostname(self):
@@ -29,6 +32,9 @@ class GeneralActionsClient(object):
 
     def get_date(self):
         return self.transport.exec_command("date")
+
+    def execute(self, cmd):
+        return self.transport.exec_command(cmd)
 
     def get_ini_config(self, filename):
         data = self.get_file_content(filename)
