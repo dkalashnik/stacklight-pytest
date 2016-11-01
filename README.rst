@@ -5,11 +5,11 @@ Prerequisites:
 
 Code requirements:
 ------------------
-Install requirements with `pip install -r requirements.txt`
+Install requirements with 'pip install -r requirements.txt'
 
 Prepared environment:
 ---------------------
-Tests requires `deploy_toolchain` in https://github.com/openstack/stacklight-integration-tests:
+Tests requires 'deploy_toolchain' in https://github.com/openstack/stacklight-integration-tests:
 
 .. code:: bash
 
@@ -22,7 +22,7 @@ Tests requires `deploy_toolchain` in https://github.com/openstack/stacklight-int
     export ISO_PATH=/home/some_user/fuel-9.0-mos-495-2016-06-16_18-18-00.iso
     export NODES_COUNT=4
 
-    You can download plugins from some srvX server (requires access to server)
+    # You can download plugins from some srvX server (requires access to server)
     scp srvX-bud.infra.mirantis.net:/home/jenkins/workspace/plugins/fuel-plugin-elasticsearch-kibana/elasticsearch_kibana-1.0-1.0.0-1.noarch.rpm /home/some_user/lma
     scp srvX-bud.infra.mirantis.net:/home/jenkins/workspace/plugins/fuel-plugin-influxdb-grafana/.build/rpm/RPMS/noarch/influxdb_grafana-1.0-1.0.0-1.noarch.rpm /home/some_user/lma
     scp srvX-bud.infra.mirantis.net:/home/jenkins/workspace/plugins/fuel-plugin-lma-collector/lma_collector-1.0-1.0.0-1.noarch.rpm /home/some_user/lma
@@ -37,5 +37,5 @@ Tests requires `deploy_toolchain` in https://github.com/openstack/stacklight-int
 
 Run tests
 =========
-To view initial tests in test_alerts.py just type `pytest`. They are using
+To view initial tests in test_alerts.py just type 'pytest'. They are using
 default settings from deployment. Later it is going to be configured.
