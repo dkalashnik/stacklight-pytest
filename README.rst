@@ -10,6 +10,7 @@ Install requirements with `pip install -r requirements.txt`
 Prepared environment:
 ---------------------
 Tests requires `deploy_toolchain` in https://github.com/openstack/stacklight-integration-tests:
+
 .. code-block:: bash
     export PYTHONPATH="$PYTHONPATH:/home/some_user/fuel-qa"
     export UPDATE_MASTER=true
