@@ -10,7 +10,7 @@ Install requirements with `pip install -r requirements.txt`
 Prepared environment:
 ---------------------
 Tests requires `deploy_toolchain` in https://github.com/openstack/stacklight-integration-tests:
-.. code-block:: ruby
+.. code-block:: bash
     export PYTHONPATH="$PYTHONPATH:/home/some_user/fuel-qa"
     export UPDATE_MASTER=true
     export UPDATE_FUEL_MIRROR='http://mirror.seed-cz1.fuel-infra.org/mos-repos/centos/mos9.0-centos7/snapshots/os-2016-06-23-135731/x86_64 http://mirror.seed-cz1.fuel-infra.org/mos-repos/centos/mos9.0-centos7/snapshots/proposed-2016-09-22-152322/x86_64 http://mirror.seed-cz1.fuel-infra.org/mos-repos/centos/mos9.0-centos7/snapshots/updates-2016-06-23-135916/x86_64 http://mirror.seed-cz1.fuel-infra.org/mos-repos/centos/mos9.0-centos7/snapshots/holdback-2016-06-23-140047/x86_64 http://mirror.seed-cz1.fuel-infra.org/mos-repos/centos/mos9.0-centos7/snapshots/security-2016-06-23-140002/x86_64'
