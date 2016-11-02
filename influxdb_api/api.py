@@ -53,11 +53,11 @@ class InfluxdbPluginApi(object):
         return self._grafana_protocol
 
     def get_influxdb_vip(self):
-        return '10.109.1.3'
+        return '10.109.1.10'
         #return self.helpers.get_vip_address('influxdb')
 
     def get_grafana_vip(self):
-        return '10.109.3.6'
+        return '10.109.3.9'
         if self.settings.version.startswith("0."):
             # 0.x versions of the plugin uses the same VIP for InfluxDB and
             # Grafana
