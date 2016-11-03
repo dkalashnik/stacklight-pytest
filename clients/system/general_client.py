@@ -1,8 +1,6 @@
-#import ConfigParser
-import cStringIO
 import logging
 import socket
-import ssh_transport
+from clients.system.ssh import ssh_transport
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +22,6 @@ class GeneralActionsClient(object):
     def get_file_content(self, filename):
         command = 'cat %s' % filename
         ret_code, output, stderr = self.transport.exec_sync(command)
-        #if ret_code is not 0:
-        # raise exceptions.SSHCommandFailed(command=command,
-        #                                   host=self.hostname,
-        #                                   stderr=stderr)
         return output
 
     def get_date(self):
@@ -36,12 +30,11 @@ class GeneralActionsClient(object):
     def execute(self, cmd):
         return self.transport.exec_command(cmd)
 
-    def get_ini_config(self, filename):
-        data = self.get_file_content(filename)
-        configfile = cStringIO.StringIO(data)
-        #config = ConfigParser.ConfigParser()
-        #c#onfig.readfp(configfile)
-        return {}
+    def put_file(self, source_path, destination_path):
+        return self.transport.put_file(source_path, destination_path)
+
+    def get_file(self, source_path, destination_path):
+        return self.transport.get_file(source_path, destination_path)
 
     def graceful_reboot(self):
         logger.info("Grace reboot node: {0}".format(self.hostname))

@@ -4,7 +4,7 @@ import select
 
 import paramiko
 
-import base
+from clients.system import base
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,14 @@ class SSHTransport(base.Transport):
         logger.debug("Successfuly connected to: {0}".format(self.address))
         return ssh
 
+    def _get_sftp_connection(self):
+        transport = paramiko.Transport((self.address, 22))
+        transport.connect(username=self.username,
+                          password=self.password,
+                          pkey=self.private_key)
+
+        return paramiko.SFTPClient.from_transport(transport)
+
     def exec_sync(self, cmd):
         logger.debug("Executing {0} on host {1}".format(cmd, self.address))
         ssh = self._get_ssh_connection()
@@ -71,3 +79,13 @@ class SSHTransport(base.Transport):
         logger.debug("Command {0} executed with status: {1}"
                      .format(cmd, exit_status))
         return exit_status, ''.join(out_data), ''.join(err_data)
+
+    def put_file(self, source_path, destination_path):
+        sftp = self._get_sftp_connection()
+        sftp.put(source_path, destination_path)
+        sftp.close()
+
+    def get_file(self, source_path, destination_path):
+        sftp = self._get_sftp_connection()
+        sftp.get(source_path, destination_path)
+        sftp.close()

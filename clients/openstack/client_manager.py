@@ -6,8 +6,8 @@
 import novaclient.client
 import novaclient.v2.client
 import time
-from influxdb_api.api import InfluxdbPluginApi
-from general_client import GeneralActionsClient
+from clients.influxdb_api.api import InfluxdbPluginApi
+from clients.system.general_client import GeneralActionsClient
 
 #from keystoneauth1.identity import v3
 #from keystoneauth1 import session
@@ -171,7 +171,8 @@ def check_rabbit_mq_disk_alarms(controller,
         "rabbitmqctl environment | grep disk_free_limit | "
         "sed -r 's/}.+//' | sed 's|.*,||'").rstrip()
 
-    cmd = ("rabbitmqctl -n rabbit@messaging-node-3 set_disk_free_limit $(df | grep /dev/dm- | "
+    cmd = ("rabbitmqctl -n rabbit@messaging-node-3 set_disk_free_limit $"
+           "(df | grep /dev/dm- | "
            "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
            "{percent} / 100) - $3))}}')")
     ssh_client.execute(cmd.format(percent=percent))

@@ -1,17 +1,3 @@
-#    Copyright 2016 Mirantis, Inc.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
 import json
 
 #from proboscis import asserts
@@ -31,9 +17,9 @@ class NotFound(Exception):
     pass
 
 
-class InfluxdbPluginApi(object):
-    def __init__(self):
-        super(InfluxdbPluginApi, self).__init__()
+class InfluxdbApi(object):
+    def __init__(self, address, port, protocol):
+        super(InfluxdbApi, self).__init__()
         self._grafana_port = None
         self._grafana_protocol = None
 
@@ -55,20 +41,6 @@ class InfluxdbPluginApi(object):
     def get_influxdb_vip(self):
         return '10.109.1.10'
         #return self.helpers.get_vip_address('influxdb')
-
-    def get_grafana_vip(self):
-        return '10.109.3.9'
-        if self.settings.version.startswith("0."):
-            # 0.x versions of the plugin uses the same VIP for InfluxDB and
-            # Grafana
-            return self.get_influxdb_vip()
-        else:
-            return self.helpers.get_vip_address('grafana')
-
-    def get_grafana_url(self, path=''):
-        return "{0}://{1}:{2}/{3}".format(self.grafana_protocol,
-                                          self.get_grafana_vip(),
-                                          self.grafana_port, path)
 
     def get_influxdb_url(self, path=''):
         return "http://{0}:8086/{1}".format(self.get_influxdb_vip(), path)
