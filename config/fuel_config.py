@@ -7,46 +7,31 @@ from fuelclient import client as api_client
 
 import utils
 from clients.system import general_client
-from clients.system.ssh import ssh_transport
 
 
 class FuelConfig(object):
     def __init__(self, fuel_address, fuel_username, fuel_password):
-        self.address = fuel_address
+        master_ssh = general_client.GeneralActionsClient(
+            fuel_address, fuel_username, password=fuel_password)
 
-        transport = ssh_transport.SSHTransport(
-            fuel_address, fuel_username, fuel_password)
-        self.master_ssh = general_client.GeneralActionsClient(
-            transport=transport)
+        self.put_updated_hiera(master_ssh)
+        fuel_access = json.loads(
+            self.get_hiera_value(master_ssh, "FUEL_ACCESS"))
 
-    def get_nailgun_config(self):
-        self.master_ssh.put_file("fixtures/hiera", "/tmp/hiera")
-        self.master_ssh.execute(["chmod", "+x", "/tmp/hiera"])
+        self.api_connection = api_client.Client(
+            host=fuel_address,
+            port=8000,
+            os_username=fuel_access["user"],
+            os_password=fuel_access["password"],
+            os_tenant_name="admin")
 
-        exit_status, stdout, stderr = self.master_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "FUEL_ACCESS"])
-
-        return json.loads(stdout)
-
-    def setup_fuelclient(self, address,
-                         port=8000,
-                         os_username="admin",
-                         os_password="admin",
-                         os_tenant_name="admin"):
-
-        self.api_connection = api_client.Client(host=address,
-                                                port=port,
-                                                os_username=os_username,
-                                                os_password=os_password,
-                                                os_tenant_name=os_tenant_name)
-
-    def get_nodes_from_nailgun(self):
         nailgun_nodes_client = \
             fuelclient.get_client('node', connection=self.api_connection)
-        nailgun_nodes = nailgun_nodes_client.get_all()
-        private_key = self.master_ssh.get_file_content("/root/.ssh/id_rsa")
 
-        nodes = []
+        nailgun_nodes = nailgun_nodes_client.get_all()
+        private_key = master_ssh.get_file_content("/root/.ssh/id_rsa")
+
+        self.nodes = []
         for nailgun_node in nailgun_nodes:
             node = {
                 "address": nailgun_node["ip"],
@@ -55,87 +40,85 @@ class FuelConfig(object):
                 "private_key": private_key,
                 "roles": nailgun_node["roles"]
             }
-            nodes.append(node)
-        return nodes
+            self.nodes.append(node)
 
-    def get_openstack_credentials(self):
-        controller = choice([node for node in self.nodes
-                            if "controller" in node["roles"]])
-        transport = ssh_transport.SSHTransport(
-            address=controller["address"],
-            username=controller["username"],
-            private_key=controller["private_key"])
+    def put_updated_hiera(self, ssh):
+        ssh.put_file(utils.get_fixture("hiera"))
+        ssh.execute("chmod +x /tmp/hiera")
 
-        controller_ssh = general_client.GeneralActionsClient(transport)
+    def get_hiera_value(self, ssh, value):
+        _, stdout, _ = ssh.execute(
+            "/tmp/hiera --format json {0}".format(value))
+        return stdout
 
-        controller_ssh.put_file("fixtures/hiera", "/tmp/hiera")
-        controller_ssh.execute(["chmod", "+x", "/tmp/hiera"])
-
-        _, openstack_credentials, _ = controller_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "access"]
-        )
-        openstack_credentials = json.loads(openstack_credentials)
-
-        _, openstack_management_vip, _ = controller_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "management_vip"]
-        )
-        _, openstack_public_vip, _ = controller_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "public_vip"]
-        )
-        openstack_credentials.update({
-            "management_vip": openstack_management_vip,
-            "public_vip": openstack_public_vip
-        })
-
-        return openstack_credentials
+    # def get_openstack_credentials(self):
+    #     controller = choice([node for node in self.nodes
+    #                         if "controller" in node["roles"]])
+    #     transport = ssh_transport.SSHTransport(
+    #         address=controller["address"],
+    #         username=controller["username"],
+    #         private_key=controller["private_key"])
+    #
+    #     controller_ssh = general_client.GeneralActionsClient(transport)
+    #
+    #     controller_ssh.put_file("fixtures/hiera", "/tmp/hiera")
+    #     controller_ssh.execute(["chmod", "+x", "/tmp/hiera"])
+    #
+    #     _, openstack_credentials, _ = controller_ssh.execute(
+    #         ["/tmp/hiera", "--format", "json", "access"]
+    #     )
+    #     openstack_credentials = json.loads(openstack_credentials)
+    #
+    #     _, openstack_management_vip, _ = controller_ssh.execute(
+    #         ["/tmp/hiera", "--format", "json", "management_vip"]
+    #     )
+    #     _, openstack_public_vip, _ = controller_ssh.execute(
+    #         ["/tmp/hiera", "--format", "json", "public_vip"]
+    #     )
+    #     openstack_credentials.update({
+    #         "management_vip": openstack_management_vip,
+    #         "public_vip": openstack_public_vip
+    #     })
+    #
+    #     return openstack_credentials
 
     def get_lma_credentials(self):
         monitoring = choice([node for node in self.nodes
                              if "elasticsearch_kibana" in node["roles"]])
-        transport = ssh_transport.SSHTransport(
+
+        monitoring_ssh = general_client.GeneralActionsClient(
             address=monitoring["address"],
             username=monitoring["username"],
             private_key=monitoring["private_key"])
 
-        monitoring_ssh = general_client.GeneralActionsClient(transport)
+        self.put_updated_hiera(monitoring_ssh)
 
-        monitoring_ssh.put_file("fixtures/hiera", "/tmp/hiera")
-        monitoring_ssh.execute(["chmod", "+x", "/tmp/hiera"])
-
-        _, lma_credentials, _ = monitoring_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "lma::kibana::authnz"]
-        )
-        lma_credentials = json.loads(lma_credentials)
-
-        lma_credentials.update({
-            "lma::kibana::vip": monitoring_ssh.execute(
-                ["/tmp/hiera", "--format", "json", "lma::kibana::vip"]
-            ),
-            "lma::elasticsearch::vip": monitoring_ssh.execute(
-                ["/tmp/hiera", "--format", "json", "lma::elasticsearch::vip"]
-            ),
-        })
-
-        return lma_credentials
+        lma_config = {
+            "influxdb_vip":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::influxdb::vip"),
+            "influxdb_port":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::influxdb::influxdb_port"),
+            "influxdb_username":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::influxdb::admin_username"),
+            "influxdb_password":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::influxdb::admin_password"),
+            "influxdb_db_name": self.get_hiera_value(monitoring_ssh,
+                                                     "lma::influxdb::dbname")
+        }
+        return lma_config
 
     def main(self):
-        fuel_access = self.get_nailgun_config()
-        self.setup_fuelclient(self.address,
-                              os_username=fuel_access["user"],
-                              os_password=fuel_access["password"])
-        self.nodes = self.get_nodes_from_nailgun()
-        self.openstack_credentials = self.get_openstack_credentials()
-        self.lma_credentials = self.get_lma_credentials()
         config = {
             "nodes": self.nodes,
-            "openstack": self.openstack_credentials,
-            "lma": self.lma_credentials,
-            "general": {
-                "transport": "clients.system.ssh.ssh_transport.SSHTransport"
-            }
+            "lma": self.get_lma_credentials(),
         }
 
-        config_filename = utils.get_fixture("config.yaml")
+        config_filename = utils.get_fixture("config.yaml",
+                                            check_existence=False)
         with file(config_filename, "w") as f:
             yaml.dump(config, f)
 

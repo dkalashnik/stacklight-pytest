@@ -14,12 +14,13 @@ class TestHTTPAdapter(requests.adapters.HTTPAdapter):
 
 
 class InfluxdbApi(object):
-    def __init__(self, address, port, username, password):
+    def __init__(self, address, port, username, password, db_name):
         super(InfluxdbApi, self).__init__()
         self.address = address
-        self.port = port,
-        self.username = username,
+        self.port = port
+        self.username = username
         self.password = password
+        self.db_name = db_name
 
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
 
@@ -55,3 +56,23 @@ class InfluxdbApi(object):
                 "u": self.username,
                 "p": self.password,
                 "q": query})
+
+    def check_alarms(self, alarm_type, filter_value, source, hostname,
+                     value, time_interval="now() - 5m"):
+        filter_by = "node_role"
+        if alarm_type == "service":
+            filter_by = "service"
+        filters = [
+            "time >= {}".format(time_interval),
+            "source = '{}'".format(source),
+            "{} = '{}'".format(filter_by, filter_value),
+            "value = {}".format(value)
+        ]
+        if hostname is not None:
+            filters.append("hostname = '{}'".format(hostname))
+
+        query = "select last(value) from {select_from} where {filters}".format(
+            select_from="{}_status".format(alarm_type),
+            filters=" and ".join(filters))
+
+        return self.do_influxdb_query(query=query).json()['results']

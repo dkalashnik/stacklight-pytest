@@ -1,8 +1,6 @@
 import random
 
-from oslo_utils import importutils
-
-import exceptions
+import custom_exceptions as exceptions
 from clients.system import general_client
 
 
@@ -69,18 +67,12 @@ class Cluster(object):
 
 
 class Host(object):
-    def __init__(self, transport_driver, address,
-                 roles=None, *args, **kwargs):
-        self.transport = importutils.import_object(transport_driver,
-                                                   address, *args, **kwargs)
+    def __init__(self, address, roles=None, *args, **kwargs):
+        self.os = general_client.GeneralActionsClient(address, *args, **kwargs)
         self.address = address
         self.roles = roles or []
-        self.exec_command = self.transport.exec_command
+        self.execute = self.os.execute
 
     @property
     def hostname(self):
         return self.os.hostname
-
-    @property
-    def os(self):
-        return general_client.GeneralActionsClient(self.transport)

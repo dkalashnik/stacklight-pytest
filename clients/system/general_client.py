@@ -1,17 +1,17 @@
 import logging
 import socket
-from clients.system.ssh import ssh_transport
+
+from clients.system import ssh
 
 logger = logging.getLogger(__name__)
 
 
 class GeneralActionsClient(object):
-    def __init__(self, transport):
-        self.transport = transport
-        # self.transport = ssh_transport.SSHTransport(address,
-        #                                             username,
-        #                                             password=password,
-        #                                             private_key=private_key)
+    def __init__(self, address, username,
+                 password=None, private_key=None):
+        self.transport = ssh.SSHTransport(address, username,
+                                          password=password,
+                                          private_key=private_key)
 
     @property
     def hostname(self):
@@ -20,7 +20,7 @@ class GeneralActionsClient(object):
 
     def get_file_content(self, filename):
         command = 'cat %s' % filename
-        ret_code, output, stderr = self.transport.exec_sync(command)
+        ret_code, output, stderr = self.transport.exec_command(command)
         return output
 
     def get_date(self):
@@ -65,7 +65,7 @@ class GeneralActionsClient(object):
         self.transport.exec_command("killall -9 {0}".format(process_name))
 
     def check_process(self, name):
-        ret_code, _, _ = self.transport.exec_sync(
+        ret_code, _, _ = self.transport.exec_command(
             "ps ax | grep {0} | grep -v grep".format(name))
         if ret_code == 0:
             logger.info("Found {0} process on nodes {1}"

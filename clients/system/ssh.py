@@ -4,7 +4,6 @@ import select
 
 import paramiko
 
-from clients.system import base
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 logging.getLogger("paramiko").setLevel(logging.WARNING)
 
 
-class SSHTransport(base.Transport):
+class SSHTransport(object):
     def __init__(self, address, username, password=None,
                  private_key=None, look_for_keys=False, *args, **kwargs):
 
@@ -47,7 +46,7 @@ class SSHTransport(base.Transport):
 
         return paramiko.SFTPClient.from_transport(transport)
 
-    def exec_sync(self, cmd):
+    def exec_command(self, cmd):
         logger.debug("Executing {0} on host {1}".format(cmd, self.address))
         ssh = self._get_ssh_connection()
         transport = ssh.get_transport()
