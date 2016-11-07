@@ -40,7 +40,7 @@ class TestAlerts(base_test.BaseLMATest):
             hostname=controller.hostname,
             value=self.OKAY_STATUS))
 
-        default_value = controller.execute(
+        default_value = controller.exec_command(
             "rabbitmqctl environment | grep disk_free_limit | "
             "sed -r 's/}.+//' | sed 's|.*,||'").rstrip()
 
@@ -49,7 +49,7 @@ class TestAlerts(base_test.BaseLMATest):
                "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
                "{percent} / 100) - $3))}}')")
 
-        controller.execute(cmd.format(percent=percent))
+        controller.exec_command(cmd.format(percent=percent))
 
         utils.wait(lambda: self.influxdb_api.check_alarms(
             alarm_type="service",
@@ -58,7 +58,7 @@ class TestAlerts(base_test.BaseLMATest):
             hostname=controller.hostname,
             value=status))
 
-        controller.execute(
+        controller.exec_command(
             "rabbitmqctl set_disk_free_limit {}".format(default_value))
 
         utils.wait(lambda: self.influxdb_api.check_alarms(

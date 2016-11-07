@@ -16,17 +16,16 @@ class GeneralActionsClient(object):
     @property
     def hostname(self):
         command = 'hostname'
-        return self.transport.exec_command(command).strip()
+        return self.transport.exec_command(command)
 
     def get_file_content(self, filename):
         command = 'cat %s' % filename
-        ret_code, output, stderr = self.transport.exec_command(command)
-        return output
+        return self.transport.exec_command(command)
 
     def get_date(self):
         return self.transport.exec_command("date")
 
-    def execute(self, cmd):
+    def exec_command(self, cmd):
         return self.transport.exec_command(cmd)
 
     def put_file(self, source_path, destination_path):

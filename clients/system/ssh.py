@@ -46,7 +46,7 @@ class SSHTransport(object):
 
         return paramiko.SFTPClient.from_transport(transport)
 
-    def exec_command(self, cmd):
+    def exec_sync(self, cmd):
         logger.debug("Executing {0} on host {1}".format(cmd, self.address))
         ssh = self._get_ssh_connection()
         transport = ssh.get_transport()
@@ -78,6 +78,10 @@ class SSHTransport(object):
         logger.debug("Command {0} executed with status: {1}"
                      .format(cmd, exit_status))
         return exit_status, ''.join(out_data).strip(), ''.join(err_data).strip()
+
+    def exec_command(self, cmd):
+        exit_status, stdout, stderr = self.exec_sync(cmd)
+        return stdout
 
     def put_file(self, source_path, destination_path):
         sftp = self._get_sftp_connection()
