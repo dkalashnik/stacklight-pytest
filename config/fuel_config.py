@@ -81,6 +81,9 @@ class FuelConfig(object):
     #     return openstack_credentials
 
     def get_lma_credentials(self):
+        def clean_password(password):
+            return password.replace("\n", "")
+
         monitoring = choice([node for node in self.nodes
                              if "elasticsearch_kibana" in node["roles"]])
 
@@ -102,8 +105,8 @@ class FuelConfig(object):
                 self.get_hiera_value(monitoring_ssh,
                                      "lma::influxdb::admin_username"),
             "influxdb_password":
-                self.get_hiera_value(monitoring_ssh,
-                                     "lma::influxdb::admin_password"),
+                clean_password(self.get_hiera_value(
+                    monitoring_ssh, "lma::influxdb::admin_password")),
             "influxdb_db_name": self.get_hiera_value(monitoring_ssh,
                                                      "lma::influxdb::dbname")
         }
