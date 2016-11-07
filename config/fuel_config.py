@@ -7,14 +7,17 @@ from fuelclient import client as api_client
 
 import utils
 from clients.system import general_client
+from clients.system.ssh import ssh_transport
 
 
 class FuelConfig(object):
     def __init__(self, fuel_address, fuel_username, fuel_password):
         self.address = fuel_address
 
-        self.master_ssh = general_client.GeneralActionsClient(
+        transport = ssh_transport.SSHTransport(
             fuel_address, fuel_username, fuel_password)
+        self.master_ssh = general_client.GeneralActionsClient(
+            transport=transport)
 
     def get_nailgun_config(self):
         self.master_ssh.put_file("fixtures/hiera", "/tmp/hiera")
@@ -30,6 +33,7 @@ class FuelConfig(object):
                          os_username="admin",
                          os_password="admin",
                          os_tenant_name="admin"):
+
         self.api_connection = api_client.Client(host=address,
                                                 port=port,
                                                 os_username=os_username,
@@ -57,10 +61,12 @@ class FuelConfig(object):
     def get_openstack_credentials(self):
         controller = choice([node for node in self.nodes
                             if "controller" in node["roles"]])
-        controller_ssh = general_client.GeneralActionsClient(
+        transport = ssh_transport.SSHTransport(
             address=controller["address"],
             username=controller["username"],
             private_key=controller["private_key"])
+
+        controller_ssh = general_client.GeneralActionsClient(transport)
 
         controller_ssh.put_file("fixtures/hiera", "/tmp/hiera")
         controller_ssh.execute(["chmod", "+x", "/tmp/hiera"])
@@ -86,10 +92,12 @@ class FuelConfig(object):
     def get_lma_credentials(self):
         monitoring = choice([node for node in self.nodes
                              if "elasticsearch_kibana" in node["roles"]])
-        monitoring_ssh = general_client.GeneralActionsClient(
+        transport = ssh_transport.SSHTransport(
             address=monitoring["address"],
             username=monitoring["username"],
             private_key=monitoring["private_key"])
+
+        monitoring_ssh = general_client.GeneralActionsClient(transport)
 
         monitoring_ssh.put_file("fixtures/hiera", "/tmp/hiera")
         monitoring_ssh.execute(["chmod", "+x", "/tmp/hiera"])
