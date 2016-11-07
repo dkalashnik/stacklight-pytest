@@ -43,7 +43,7 @@ class FuelConfig(object):
             self.nodes.append(node)
 
     def put_updated_hiera(self, ssh):
-        ssh.put_file(utils.get_fixture("hiera"))
+        ssh.put_file(utils.get_fixture("hiera"), "/tmp/hiera")
         ssh.execute("chmod +x /tmp/hiera")
 
     def get_hiera_value(self, ssh, value):
