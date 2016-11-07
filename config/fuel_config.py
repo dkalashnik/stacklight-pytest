@@ -15,8 +15,7 @@ class FuelConfig(object):
             fuel_address, fuel_username, password=fuel_password)
 
         self.put_updated_hiera(master_ssh)
-        fuel_access = json.loads(
-            self.get_hiera_value(master_ssh, "FUEL_ACCESS"))
+        fuel_access = self.get_hiera_value(master_ssh, "FUEL_ACCESS")
 
         self.api_connection = api_client.Client(
             host=fuel_address,
@@ -119,7 +118,7 @@ class FuelConfig(object):
         config_filename = utils.get_fixture("config.yaml",
                                             check_existence=False)
         with file(config_filename, "w") as f:
-            yaml.dump(config, f)
+            yaml.safe_dump(config, f, default_flow_style=False)
 
 
 FuelConfig("10.109.0.2", "root", "r00tme").main()
