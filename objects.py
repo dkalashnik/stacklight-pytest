@@ -52,7 +52,7 @@ class Cluster(object):
 
     def get_by_hostname(self, hostname):
         for host in self.hosts:
-            if host.hostname == hostname:
+            if hostname in host.hostname or host.hostname == hostname:
                 return host
         raise exceptions.NoValidHost(condition="hostname == {0}"
                                      .format(hostname))

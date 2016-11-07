@@ -47,12 +47,12 @@ class InfluxdbApi(object):
         print(r.content)
         return r
 
-    def do_influxdb_query(self, query, db, expected_code=200):
+    def do_influxdb_query(self, query, expected_code=200):
         return self.check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
             expected_code=expected_code,
             params={
-                "db": db,
+                "db": self.db_name,
                 "u": self.username,
                 "p": self.password,
                 "q": query})

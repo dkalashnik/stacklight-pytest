@@ -15,7 +15,7 @@ class NotFound(BaseCustomException):
 
 
 class NoValidHost(BaseCustomException):
-    msg_fmt = "No host with condition '%(condition)' in cluster"
+    msg_fmt = "No host with condition '%(condition)s' in cluster"
 
 
 class EmptyCluster(BaseCustomException):

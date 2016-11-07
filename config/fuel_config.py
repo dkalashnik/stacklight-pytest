@@ -47,7 +47,8 @@ class FuelConfig(object):
         ssh.exec_command("chmod +x /tmp/hiera")
 
     def get_hiera_value(self, ssh, value):
-        return ssh.exec_command("/tmp/hiera --format json {0}".format(value))
+        return json.loads(ssh.exec_command(
+            "/tmp/hiera --format json {0}".format(value)))
 
     # def get_openstack_credentials(self):
     #     controller = choice([node for node in self.nodes
