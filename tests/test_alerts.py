@@ -1,21 +1,19 @@
 import pytest
 
+from tests import base_test
+
 from client_manager import check_rabbit_mq_disk_alarms
 from client_manager import TimeoutError
 from client_manager import GeneralActionsClient
 from client_manager import WARNING_STATUS
 from client_manager import RABBITMQ_DISK_WARNING_PERCENT
 
-FETCH_TIMEOUT = 10  # Timeout for fetch time normalization failing/passing
-
-priv_key = open('./fixtures/id_rsa').read()
-ssh_client = GeneralActionsClient('10.109.0.3',
-                                  'root',
-                                  private_key=priv_key)
 
 
-class TestAlerts(object):
-    """Test alerting service for openstack deployments with Stacklight"""
+class TestAlerts(base_test.BaseLMATest):
+    def check_rabbit_mq_disk_alarms(self):
+
+
     def test_success_alerts(self):
         check_rabbit_mq_disk_alarms({'hostname': 'node-3'},
                                     WARNING_STATUS,

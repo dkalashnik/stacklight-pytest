@@ -1,10 +1,11 @@
 import json
 from random import choice
-from pprint import pprint
+import yaml
 
 import fuelclient
 from fuelclient import client as api_client
 
+import utils
 from clients.system import general_client
 
 
@@ -73,7 +74,7 @@ class FuelConfig(object):
             ["/tmp/hiera", "--format", "json", "management_vip"]
         )
         _, openstack_public_vip, _ = controller_ssh.execute(
-            ["/tmp/hiera", "--format", "json", "public"]
+            ["/tmp/hiera", "--format", "json", "public_vip"]
         )
         openstack_credentials.update({
             "management_vip": openstack_management_vip,
@@ -117,11 +118,18 @@ class FuelConfig(object):
         self.nodes = self.get_nodes_from_nailgun()
         self.openstack_credentials = self.get_openstack_credentials()
         self.lma_credentials = self.get_lma_credentials()
-        pprint({
+        config = {
             "nodes": self.nodes,
             "openstack": self.openstack_credentials,
-            "lma": self.lma_credentials
-        })
+            "lma": self.lma_credentials,
+            "general": {
+                "transport": "clients.system.ssh.ssh_transport.SSHTransport"
+            }
+        }
+
+        config_filename = utils.get_fixture("config.yaml")
+        with file(config_filename, "w") as f:
+            yaml.dump(config, f)
 
 
 FuelConfig("10.109.0.2", "root", "r00tme").main()

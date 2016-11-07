@@ -78,7 +78,7 @@ class SSHTransport(base.Transport):
         exit_status = channel.recv_exit_status()
         logger.debug("Command {0} executed with status: {1}"
                      .format(cmd, exit_status))
-        return exit_status, ''.join(out_data), ''.join(err_data)
+        return exit_status, ''.join(out_data).strip(), ''.join(err_data).strip()
 
     def put_file(self, source_path, destination_path):
         sftp = self._get_sftp_connection()

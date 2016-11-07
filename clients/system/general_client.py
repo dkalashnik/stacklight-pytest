@@ -6,13 +6,12 @@ logger = logging.getLogger(__name__)
 
 
 class GeneralActionsClient(object):
-    def __init__(self, address, username,
-                 password=None,
-                 private_key=None):
-        self.transport = ssh_transport.SSHTransport(address,
-                                                    username,
-                                                    password=password,
-                                                    private_key=private_key)
+    def __init__(self, transport):
+        self.transport = transport
+        # self.transport = ssh_transport.SSHTransport(address,
+        #                                             username,
+        #                                             password=password,
+        #                                             private_key=private_key)
 
     @property
     def hostname(self):
