@@ -116,7 +116,7 @@ class BaseLMATest(object):
 
     def set_rabbitmq_memory_watermark(self, controller, limit, timeout=5 * 60):
         def check_result():
-            exit_code = controller.os.transport.exec_sync(
+            exit_code, _, _ = controller.os.transport.exec_sync(
                 "rabbitmqctl set_vm_memory_high_watermark {}".format(limit))
             if exit_code == 0:
                 return True
