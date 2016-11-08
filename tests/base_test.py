@@ -71,72 +71,48 @@ class BaseLMATest(object):
         check_alarm(value=self.OKAY_STATUS)
 
     def check_rabbit_mq_disk_alarms(self, controller, status, percent):
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm = partial(self.influxdb_api.check_alarms,
+                              alarm_type="service",
+                              filter_value="rabbitmq-cluster",
+                              source="disk",
+                              hostname=controller.hostname)
+        check_alarm(value=self.OKAY_STATUS)
 
         default_value = controller.exec_command(
             "rabbitmqctl environment | grep disk_free_limit | "
-            "sed -r 's/}.+//' | sed 's|.*,||'").rstrip()
+            "sed -r 's/}.+//' | sed 's|.*,||'")
 
         cmd = ("rabbitmqctl -n rabbit@messaging-node-3 set_disk_free_limit $"
                "(df | grep /dev/dm- | "
                "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
                "{percent} / 100) - $3))}}')")
         controller.exec_command(cmd.format(percent=percent))
-
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=status)
+        check_alarm(value=status)
 
         controller.exec_command(
             "rabbitmqctl set_disk_free_limit {}".format(default_value))
-
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm(value=self.OKAY_STATUS)
 
     def check_rabbit_mq_memory_alarms(self, controller, status, value):
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm = partial(self.influxdb_api.check_alarms,
+                              alarm_type="service",
+                              filter_value="rabbitmq-cluster",
+                              source="memory",
+                              hostname=controller.hostname)
+        check_alarm(value=self.OKAY_STATUS)
 
-        default_value = controller.os.exec_command(
+        default_value = controller.exec_command(
             "rabbitmqctl environment | grep disk_free_limit | "
-            "sed -r 's/}.+//' | sed 's|.*,||'")['stdout'][0].rstrip()
-
+            "sed -r 's/}.+//' | sed 's|.*,||'")
         mem_usage = self.influxdb_api.get_rabbitmq_memory_usage()
 
-        controller.os.exec_command(
+        controller.exec_command(
             "rabbitmqctl set_vm_memory_high_watermark absolute \"{memory}\"".
                 format(memory=int(mem_usage * value)))
-
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=status)
+        check_alarm(value=status)
 
         self.set_rabbitmq_memory_watermark(controller, default_value)
-        self.influxdb_api.check_alarms(
-            alarm_type="service",
-            filter_value="rabbitmq-cluster",
-            source="disk",
-            hostname=controller.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm(value=self.OKAY_STATUS)
 
     def set_rabbitmq_memory_watermark(self, controller, limit, timeout=5 * 60):
         def check_result():
