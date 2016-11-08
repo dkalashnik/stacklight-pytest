@@ -75,4 +75,18 @@ class InfluxdbApi(object):
             select_from="{}_status".format(alarm_type),
             filters=" and ".join(filters))
 
-        return self.do_influxdb_query(query=query).json()['results']
+        def check_result():
+            return len(self.do_influxdb_query(query=query)
+                       .json()['results'][0])
+
+        msg = ("Alarm of type: {}: entity: {}, source:{}, hostname: {}, "
+               "value: {} wasn't triggered".format(alarm_type, filter_value,
+                                                   source, hostname, value))
+
+        utils.wait(check_result, timeout=60 * 5, interval=10, timeout_msg=msg)
+
+    def get_rabbitmq_memory_usage(self, interval="now() - 5m"):
+        query = ("select last(value) from rabbitmq_used_memory "
+                 "where time >= {interval}".format(interval=interval))
+        result = self.do_influxdb_query(query=query).json()
+        return result["results"][0]["series"][0]["values"][0][1]
