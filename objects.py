@@ -80,4 +80,8 @@ class Host(object):
 
     @property
     def hostname(self):
-        return self.os.hostname
+        return self.os.short_hostname
+
+    @property
+    def long_hostname(self):
+        return self.os.long_hostname

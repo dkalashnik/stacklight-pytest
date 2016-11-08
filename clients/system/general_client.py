@@ -14,8 +14,13 @@ class GeneralActionsClient(object):
                                           private_key=private_key)
 
     @property
-    def hostname(self):
-        command = 'hostname'
+    def short_hostname(self):
+        command = 'hostname --short'
+        return self.transport.exec_command(command)
+
+    @property
+    def long_hostname(self):
+        command = 'hostname --long'
         return self.transport.exec_command(command)
 
     def get_file_content(self, filename):

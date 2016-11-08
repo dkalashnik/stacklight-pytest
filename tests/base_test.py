@@ -2,7 +2,6 @@ import yaml
 from functools import partial
 
 from clients import influxdb_api
-import custom_exceptions as exceptions
 import utils
 import objects
 
@@ -54,41 +53,22 @@ class BaseLMATest(object):
                               filter_value=node_role,
                               source=source,
                               hostname=node.hostname)
-        check_alarm(self.OKAY_STATUS)
+
+        check_alarm(value=self.OKAY_STATUS)
 
         node.os.fill_up_filesystem(filesystem, self.WARNING_PERCENT, filename)
         logger.info("Checking {}-warning alarm".format(source))
-        self.influxdb_api.check_alarms(
-            alarm_type=alarm_type,
-            filter_value=node_role,
-            source=source,
-            hostname=node.hostname,
-            value=self.WARNING_STATUS)
+        check_alarm(value=self.WARNING_STATUS)
 
         node.os.clean_filesystem(filename)
-        self.influxdb_api.check_alarms(
-            alarm_type=alarm_type,
-            filter_value=node_role,
-            source=source,
-            hostname=node.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm(value=self.OKAY_STATUS)
 
         node.os.fill_up_filesystem(filesystem, self.CRITICAL_PERCENT, filename)
         logger.info("Checking {}-critical alarm".format(source))
-        self.influxdb_api.check_alarms(
-            alarm_type=alarm_type,
-            filter_value=node_role,
-            source=source,
-            hostname=node.hostname,
-            value=self.CRITICAL_STATUS)
+        check_alarm(value=self.CRITICAL_STATUS)
 
         node.os.clean_filesystem(filename)
-        self.influxdb_api.check_alarms(
-            alarm_type=alarm_type,
-            filter_value=node_role,
-            source=source,
-            hostname=node.hostname,
-            value=self.OKAY_STATUS)
+        check_alarm(value=self.OKAY_STATUS)
 
     def check_rabbit_mq_disk_alarms(self, controller, status, percent):
         self.influxdb_api.check_alarms(
