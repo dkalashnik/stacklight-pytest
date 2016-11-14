@@ -37,5 +37,12 @@ Tests requires 'deploy_toolchain' in https://github.com/openstack/stacklight-int
 
 Run tests
 =========
+You are needed to generate config from fuel to run tests now:
+PYTHONPATH=".:$PYTHONPATH" python config/fuel_config.py
+There is also need to install in Your venv python-fuelclient from stable mitaka
+https://github.com/openstack/python-fuelclient/tree/stable/mitaka
+
+After file 'fixtures/config.yaml' is generated You can run tests.
+
 To view initial tests in test_alerts.py just type 'pytest'. They are using
 default settings from deployment. Later it is going to be configured.

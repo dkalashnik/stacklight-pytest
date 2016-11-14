@@ -90,3 +90,4 @@ ENV/
 .ropeproject
 
 fixtures/id_rsa
+fixtures/config.yaml
