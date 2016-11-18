@@ -47,3 +47,4 @@ netifaces
 ipdb
 cryptography
 pytest
+warlock

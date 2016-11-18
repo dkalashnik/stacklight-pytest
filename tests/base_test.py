@@ -101,17 +101,17 @@ class BaseLMATest(object):
                               hostname=controller.hostname)
         check_alarm(value=self.OKAY_STATUS)
 
-        default_value = controller.exec_command(
-            "rabbitmqctl environment | grep disk_free_limit | "
+        default_value = controller.exec_command( # DISK_FREE_LIMIT? o_O
+            "rabbitmqctl -n rabbit@messaging-node-3 environment | grep disk_free_limit | "
             "sed -r 's/}.+//' | sed 's|.*,||'")
         mem_usage = self.influxdb_api.get_rabbitmq_memory_usage()
 
-        controller.exec_command(
-            "rabbitmqctl set_vm_memory_high_watermark absolute \"{memory}\"".
-                format(memory=int(mem_usage * value)))
+        cmd = "rabbitmqctl -n rabbit@messaging-node-3 set_vm_memory_high_watermark absolute \"{memory}\"".format(memory=int(mem_usage * value))
+        print(cmd)
+        controller.exec_command(cmd)
         check_alarm(value=status)
 
-        self.set_rabbitmq_memory_watermark(controller, default_value)
+        self.set_rabbitmq_memory_watermark(controller, '0.4')
         check_alarm(value=self.OKAY_STATUS)
 
     def set_rabbitmq_memory_watermark(self, controller, limit, timeout=5 * 60):
@@ -130,6 +130,8 @@ class BaseLMATest(object):
                               metrics, status):
         for _ in range(trigger_count):
             trigger_fn()
+        print('check metric {0}'.format(metrics.items()))
+        print('status: {0}'.format(status))
         for service, source in metrics.items():
             self.influxdb_api.check_alarms(
                 alarm_type="service",
