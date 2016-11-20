@@ -5,8 +5,9 @@ import yaml
 import fuelclient
 from fuelclient import client as api_client
 
-import utils
 from clients.system import general_client
+import settings
+import utils
 
 
 class FuelConfig(object):
@@ -24,8 +25,8 @@ class FuelConfig(object):
             os_password=fuel_access["password"],
             os_tenant_name="admin")
 
-        nailgun_nodes_client = \
-            fuelclient.get_client('node', connection=self.api_connection)
+        nailgun_nodes_client = fuelclient.get_client(
+            'node', connection=self.api_connection)
 
         nailgun_nodes = nailgun_nodes_client.get_all()
         private_key = master_ssh.get_file_content("/root/.ssh/id_rsa")
@@ -124,4 +125,7 @@ class FuelConfig(object):
             yaml.safe_dump(config, f, default_flow_style=False)
 
 
-FuelConfig("10.109.0.2", "root", "r00tme").main()
+if __name__ == '__main__':
+    FuelConfig(settings.ENV_FUEL_IP,
+               settings.ENV_FUEL_LOGIN,
+               settings.ENV_FUEL_PASSWORD).main()

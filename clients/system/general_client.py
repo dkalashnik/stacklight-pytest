@@ -94,8 +94,6 @@ class GeneralActionsClient(object):
     def get_all_bridged_interfaces_for_node(self, excluded_criteria=None):
         """Return all network bridges for a node.
 
-        :param remote: SSH connection to the node.
-        :type remote: SSHClient
         :param excluded_criteria: regular expression to filter out items
         :type excluded_criteria: str
         :returns: list of interfaces
@@ -113,8 +111,6 @@ class GeneralActionsClient(object):
     def switch_interface(self, interface, up=True):
         """Turn a network interface up or down.
 
-        :param remote: SSH connection to the node.
-        :type remote: SSHClient
         :param interface: interface name.
         :type interface: str
         :param up: whether the interface should be turned up (default: True).
@@ -128,8 +124,6 @@ class GeneralActionsClient(object):
     def simulate_network_interrupt_on_node(self, interval=30):
         """Simulate a network outage on a node.
 
-        :param remote: SSH connection to the node.
-        :type remote: SSHClient
         :param interval: outage duration in seconds (default: 30).
         :type interval: int
         """
@@ -143,8 +137,6 @@ class GeneralActionsClient(object):
     def get_pids_of_process(self, cmd_pattern):
         """Get PIDS of process by its pattern.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param cmd_pattern: command.
             :type cmd_pattern: str
             :returns: list of PIDS.
@@ -160,12 +152,10 @@ class GeneralActionsClient(object):
     def ban_resource(self, resource, wait=None):
         """Ban a resource from the current node.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param resource: resource name.
-            :type name: str
+            :type resource: str
             :param wait: number of seconds to wait for the operation to complete.
-            :type operation: int
+            :type wait: int
         """
         cmd = "pcs resource ban {}".format(resource)
         if wait is not None:
@@ -175,8 +165,6 @@ class GeneralActionsClient(object):
     def clear_resource(self, resource, wait=None):
         """Clear a resource.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param resource: resource name.
             :type resource: str
             :param wait: number of seconds to wait for the operation to complete.
@@ -190,8 +178,6 @@ class GeneralActionsClient(object):
     def manage_pacemaker_service(self, name, operation="restart"):
         """Operate HA service on remote node.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param name: service name.
             :type name: str
             :param operation: type of operation, usually start, stop or restart.
@@ -203,8 +189,6 @@ class GeneralActionsClient(object):
     def manage_service(self, name, operation="restart"):
         """Operate service on remote node.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param name: service name.
             :type name: str
             :param operation: type of operation, usually start, stop or restart.
@@ -224,16 +208,12 @@ class GeneralActionsClient(object):
     def clear_local_mail(self):
         """Clean local mail
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
         """
         self.exec_command("rm -f $MAIL")
 
     def fill_up_filesystem(self, fs, percent, file_name):
         """Fill filesystem on node.
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param fs: name of the filesystem to fill up
             :type fs: str
             :param percent: amount of space to be filled in percent.
@@ -252,8 +232,6 @@ class GeneralActionsClient(object):
     def clean_filesystem(self, filename):
         """Clean space filled by fill_up_filesystem function
 
-            :param remote: SSH connection to the node.
-            :type remote: SSHClient
             :param filename: name of the file to delete
             :type filename: str
         """

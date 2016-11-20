@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Hack before project is not packaged
+export PYTHONPATH=".:$PYTHONPATH"
+
+# Fuel parameters
+export ENV_FUEL_IP=10.109.0.2
+export ENV_FUEL_LOGIN=root
+export ENV_FUEL_PASSWORD=r00tme
