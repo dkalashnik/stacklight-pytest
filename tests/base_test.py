@@ -1,7 +1,9 @@
 import yaml
 from functools import partial
 
+from clients import es_kibana_api
 from clients import influxdb_api
+from clients.openstack import client_manager as os_clients
 import utils
 import objects
 
@@ -38,12 +40,37 @@ class BaseLMATest(object):
                 objects.Host(**node_args)
             )
 
+        lma = cls.config.get("lma")
         cls.influxdb_api = influxdb_api.InfluxdbApi(
-            address=cls.config["lma"]["influxdb_vip"],
-            port=cls.config["lma"]["influxdb_port"],
-            username=cls.config["lma"]["influxdb_username"],
-            password=cls.config["lma"]["influxdb_password"],
-            db_name=cls.config["lma"]["influxdb_db_name"]
+            address=lma["influxdb_vip"],
+            port=lma["influxdb_port"],
+            username=lma["influxdb_username"],
+            password=lma["influxdb_password"],
+            db_name=lma["influxdb_db_name"]
+        )
+
+        cls.es_kibana_api = es_kibana_api.EsKibanaApi(
+            host=lma["elasticsearch_vip"],
+            port=lma["elasticsearch_port"],
+        )
+
+        # NOTE(rpromyshlennikov): It may need refactor,
+        # if we use deploy without SSL
+        auth = cls.config.get("auth")
+        cert_content = auth["public_ssl"]["cert_data"]["content"]
+        cert = utils.write_cert(cert_content) if cert_content else False
+        public_vip = auth["public_vip"]
+        auth_url = "http://{}:5000/".format(public_vip)
+        if cert:
+            hostname = auth["public_ssl"]["hostname"]
+            auth_url = "https://{}:5000/".format(hostname)
+        cls.os_clients = os_clients.OfficialClientManager(
+            username=auth["access"]["user"],
+            password=auth["access"]["password"],
+            tenant_name=auth["access"]["tenant"],
+            auth_url=auth_url,
+            cert=cert,
+            domain=auth["access"].get("domain", "Default"),
         )
 
     def check_filesystem_alarms(self, node, filesystem, source,

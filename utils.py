@@ -1,4 +1,5 @@
 import os
+import tempfile
 import time
 
 import custom_exceptions as exceptions
@@ -26,3 +27,11 @@ def wait(predicate, interval=5, timeout=60, timeout_msg="Waiting timed out"):
         time.sleep(seconds_to_sleep)
 
     return timeout + start_time - time.time()
+
+
+def write_cert(cert_content):
+    with tempfile.NamedTemporaryFile(
+            prefix="ca_", suffix=".pem", delete=False) as f:
+        f.write(cert_content)
+
+    return f.name

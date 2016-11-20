@@ -1,13 +1,8 @@
-from tests import base_test
-
+import contextlib
 import logging
 
-from clients.openstack.client_manager import OfficialClientManager
+from tests import base_test
 
-OS_PROJECT_NAME = 'admin'
-OS_USERNAME = 'admin'
-OS_PASSWORD = 'admin'
-OS_AUTH_URL = 'https://public.fuel.local:5000/v2.0/'
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +75,6 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
                                            self.RABBITMQ_MEMORY_CRITICAL_VALUE)
 
-
-
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
         expected.
@@ -136,7 +129,6 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_filesystem_alarms(compute, "/var/lib/nova", "nova-fs",
                                      "/var/lib/nova/bigfile", "compute")
 
-    import contextlib
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):
         """Context manager that renames all tables in provided database
@@ -182,11 +174,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        client = OfficialClientManager().get_compute_client(
-            username=OS_USERNAME,
-            password=OS_PASSWORD,
-            tenant_name=OS_PROJECT_NAME,
-            identity_url=OS_AUTH_URL)
+        client = self.os_clients.compute
 
         def get_servers_list():
             print('get servers')
@@ -196,16 +184,6 @@ class TestAlerts(base_test.BaseLMATest):
                 pass
 
         controller = self.cluster.get_random_controller()
-        cmd = (
-            "mysql -AN -e "
-            "\"select concat("
-            "'rename table {db_name}.', table_name, ' "
-            "to {db_name}.' , {method}(table_name) , ';') "
-            "from information_schema.tables "
-            "where table_schema = '{db_name}';"
-            "\" | mysql")
-
-        controller.os.transport.exec_sync(cmd.format(db_name='nova', method="lower"))
 
         with self.make_logical_db_unavailable("nova", controller):
             metrics = {"nova-api": 'http_errors'}
@@ -227,16 +205,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        client = OfficialClientManager().get_compute_client(
-            username=OS_USERNAME,
-            password=OS_PASSWORD,
-            tenant_name=OS_PROJECT_NAME,
-            identity_url=OS_AUTH_URL)
-        net_client = OfficialClientManager().get_neutron_client(
-            username=OS_USERNAME,
-            password=OS_PASSWORD,
-            tenant_name=OS_PROJECT_NAME,
-            identity_url=OS_AUTH_URL)
+        net_client = self.os_clients.network
 
         def get_agents_list():
             try:
@@ -266,11 +235,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        image_client = OfficialClientManager().get_glance_client(
-            username=OS_USERNAME,
-            password=OS_PASSWORD,
-            tenant_name=OS_PROJECT_NAME,
-            identity_url=OS_AUTH_URL)
+        image_client = self.os_clients.image
 
         def get_images_list():
             try:
@@ -331,15 +296,11 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
-        glance_client = OfficialClientManager().get_volume_client(
-            username=OS_USERNAME,
-            password=OS_PASSWORD,
-            tenant_name=OS_PROJECT_NAME,
-            identity_url=OS_AUTH_URL)
+        cinder_client = self.os_clients.volume
 
         def get_volumes_list():
             try:
-                return [image for image in glance_client.images.list()]
+                return [image for image in cinder_client.images.list()]
             except Exception:
                 pass
 
