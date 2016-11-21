@@ -90,4 +90,6 @@ ENV/
 .ropeproject
 
 fixtures/id_rsa
-fixtures/config.yaml
+fixtures/config.yaml*
+
+openrc

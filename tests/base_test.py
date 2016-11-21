@@ -1,11 +1,14 @@
-import yaml
 from functools import partial
-
-from clients import influxdb_api
-import utils
-import objects
-
 import logging
+import random
+
+import yaml
+
+from clients import es_kibana_api
+from clients import influxdb_api
+from clients.openstack import client_manager as os_clients
+import objects
+import utils
 
 
 logger = logging.getLogger(__name__)
@@ -38,12 +41,37 @@ class BaseLMATest(object):
                 objects.Host(**node_args)
             )
 
+        lma = cls.config.get("lma")
         cls.influxdb_api = influxdb_api.InfluxdbApi(
-            address=cls.config["lma"]["influxdb_vip"],
-            port=cls.config["lma"]["influxdb_port"],
-            username=cls.config["lma"]["influxdb_username"],
-            password=cls.config["lma"]["influxdb_password"],
-            db_name=cls.config["lma"]["influxdb_db_name"]
+            address=lma["influxdb_vip"],
+            port=lma["influxdb_port"],
+            username=lma["influxdb_username"],
+            password=lma["influxdb_password"],
+            db_name=lma["influxdb_db_name"]
+        )
+
+        cls.es_kibana_api = es_kibana_api.EsKibanaApi(
+            host=lma["elasticsearch_vip"],
+            port=lma["elasticsearch_port"],
+        )
+
+        # NOTE(rpromyshlennikov): It may need refactor,
+        # if we use deploy without SSL
+        auth = cls.config.get("auth")
+        cert_content = auth["public_ssl"]["cert_data"]["content"]
+        cert = utils.write_cert(cert_content) if cert_content else False
+        public_vip = auth["public_vip"]
+        auth_url = "http://{}:5000/".format(public_vip)
+        if cert:
+            hostname = auth["public_ssl"]["hostname"]
+            auth_url = "https://{}:5000/".format(hostname)
+        cls.os_clients = os_clients.OfficialClientManager(
+            username=auth["access"]["user"],
+            password=auth["access"]["password"],
+            tenant_name=auth["access"]["tenant"],
+            auth_url=auth_url,
+            cert=cert,
+            domain=auth["access"].get("domain", "Default"),
         )
 
     def check_filesystem_alarms(self, node, filesystem, source,
@@ -139,3 +167,29 @@ class BaseLMATest(object):
                 source=source,
                 hostname=None,
                 value=status)
+
+    def get_cirros_image(self):
+        return list(self.os_clients.image.images.list(name='TestVM'))[0]
+
+    def get_micro_flavor(self):
+        return self.os_clients.compute.flavors.list(sort_key="memory_mb")[0]
+
+    def get_internal_network(self):
+        return [
+            net for net in self.os_clients.network.list_networks()['networks']
+            if "internal" in net['name']][0]
+
+    def create_basic_server(self, wait_timeout=3*60):
+        os_conn = self.os_clients
+        cirros_image = self.get_cirros_image()
+        micro_flavor = self.get_micro_flavor()
+        net = self.get_internal_network()
+        server = os_conn.compute.servers.create(
+            "Stacklight_pytest_{}".format(random.randrange(100, 999)),
+            cirros_image, micro_flavor, nics=[{"net-id": net["id"]}])
+        utils.wait(
+            lambda: os_conn.compute.servers.get(server).status == "ACTIVE",
+            timeout=wait_timeout,
+            timeout_msg="Create server {!r} failed by timeout. Please, take"
+                        " a look at OpenStack logs".format(server.id))
+        return server

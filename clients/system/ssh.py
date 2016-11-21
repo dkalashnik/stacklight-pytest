@@ -35,7 +35,7 @@ class SSHTransport(object):
         ssh.connect(self.address, username=self.username,
                     password=self.password, pkey=self.private_key,
                     timeout=self.channel_timeout)
-        logger.debug("Successfuly connected to: {0}".format(self.address))
+        logger.debug("Successfully connected to: {0}".format(self.address))
         return ssh
 
     def _get_sftp_connection(self):

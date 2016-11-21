@@ -5,8 +5,9 @@ import yaml
 import fuelclient
 from fuelclient import client as api_client
 
-import utils
 from clients.system import general_client
+import settings
+import utils
 
 
 class FuelConfig(object):
@@ -24,8 +25,8 @@ class FuelConfig(object):
             os_password=fuel_access["password"],
             os_tenant_name="admin")
 
-        nailgun_nodes_client = \
-            fuelclient.get_client('node', connection=self.api_connection)
+        nailgun_nodes_client = fuelclient.get_client(
+            'node', connection=self.api_connection)
 
         nailgun_nodes = nailgun_nodes_client.get_all()
         private_key = master_ssh.get_file_content("/root/.ssh/id_rsa")
@@ -49,36 +50,27 @@ class FuelConfig(object):
         return json.loads(ssh.exec_command(
             "/tmp/hiera --format json {0}".format(value)))
 
-    # def get_openstack_credentials(self):
-    #     controller = choice([node for node in self.nodes
-    #                         if "controller" in node["roles"]])
-    #     transport = ssh_transport.SSHTransport(
-    #         address=controller["address"],
-    #         username=controller["username"],
-    #         private_key=controller["private_key"])
-    #
-    #     controller_ssh = general_client.GeneralActionsClient(transport)
-    #
-    #     controller_ssh.put_file("fixtures/hiera", "/tmp/hiera")
-    #     controller_ssh.execute(["chmod", "+x", "/tmp/hiera"])
-    #
-    #     _, openstack_credentials, _ = controller_ssh.execute(
-    #         ["/tmp/hiera", "--format", "json", "access"]
-    #     )
-    #     openstack_credentials = json.loads(openstack_credentials)
-    #
-    #     _, openstack_management_vip, _ = controller_ssh.execute(
-    #         ["/tmp/hiera", "--format", "json", "management_vip"]
-    #     )
-    #     _, openstack_public_vip, _ = controller_ssh.execute(
-    #         ["/tmp/hiera", "--format", "json", "public_vip"]
-    #     )
-    #     openstack_credentials.update({
-    #         "management_vip": openstack_management_vip,
-    #         "public_vip": openstack_public_vip
-    #     })
-    #
-    #     return openstack_credentials
+    def get_openstack_credentials(self):
+        controller = choice([node for node in self.nodes
+                            if "controller" in node["roles"]])
+        controller_ssh = general_client.GeneralActionsClient(
+            address=controller["address"],
+            username=controller["username"],
+            private_key=controller["private_key"])
+
+        self.put_updated_hiera(controller_ssh)
+
+        openstack_auth_config = {
+            "access":
+                self.get_hiera_value(controller_ssh, "access"),
+            "management_vip":
+                self.get_hiera_value(controller_ssh, "management_vip"),
+            "public_vip":
+                self.get_hiera_value(controller_ssh, "public_vip"),
+            "public_ssl":
+                self.get_hiera_value(controller_ssh, "public_ssl"),
+        }
+        return openstack_auth_config
 
     def get_lma_credentials(self):
         def clean_password(password):
@@ -108,7 +100,14 @@ class FuelConfig(object):
                 clean_password(self.get_hiera_value(
                     monitoring_ssh, "lma::influxdb::admin_password")),
             "influxdb_db_name": self.get_hiera_value(monitoring_ssh,
-                                                     "lma::influxdb::dbname")
+                                                     "lma::influxdb::dbname"),
+            "elasticsearch_vip":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::elasticsearch::vip"),
+            "elasticsearch_port":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::elasticsearch::rest_port"),
+
         }
         return lma_config
 
@@ -116,6 +115,7 @@ class FuelConfig(object):
         config = {
             "nodes": self.nodes,
             "lma": self.get_lma_credentials(),
+            "auth": self.get_openstack_credentials(),
         }
 
         config_filename = utils.get_fixture("config.yaml",
@@ -124,4 +124,7 @@ class FuelConfig(object):
             yaml.safe_dump(config, f, default_flow_style=False)
 
 
-FuelConfig("10.109.0.2", "root", "r00tme").main()
+if __name__ == '__main__':
+    FuelConfig(settings.ENV_FUEL_IP,
+               settings.ENV_FUEL_LOGIN,
+               settings.ENV_FUEL_PASSWORD).main()

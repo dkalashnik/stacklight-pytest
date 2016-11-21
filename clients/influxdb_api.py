@@ -90,3 +90,22 @@ class InfluxdbApi(object):
                  "where time >= {interval}".format(interval=interval))
         result = self.do_influxdb_query(query=query).json()
         return result["results"][0]["series"][0]["values"][0][1]
+
+    def get_instance_creation_time_metrics(self, time_point=None):
+        """Gets instance creation metrics for provided interval
+
+        :param time_point: time interval
+        :type time_point: str
+        :returns: list of metrics
+        :rtype: list
+        """
+        interval = "now() - 1h" if time_point is None else time_point
+        query = (
+            "select value "
+            "from openstack_nova_instance_creation_time "
+            "where time >= {interval}".format(interval=interval))
+        result = self.do_influxdb_query(query=query).json()["results"][0]
+
+        if result:
+            return result["series"][0]["values"]
+        return []
