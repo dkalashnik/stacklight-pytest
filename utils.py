@@ -1,13 +1,15 @@
 import os
+import random
 import tempfile
 import time
 
 import custom_exceptions as exceptions
 
 
-def get_fixture(name, check_existence=True):
+def get_fixture(name, parent_dirs=("",), check_existence=True):
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(test_dir, "fixtures", name)
+    parent_dirs_path = os.path.join(*parent_dirs)
+    path = os.path.join(test_dir, "fixtures", parent_dirs_path, name)
     if check_existence and not os.path.isfile(path):
         raise exceptions.NotFound("File {} not found".format(path))
     return path
@@ -33,5 +35,12 @@ def write_cert(cert_content):
     with tempfile.NamedTemporaryFile(
             prefix="ca_", suffix=".pem", delete=False) as f:
         f.write(cert_content)
-
     return f.name
+
+
+def rand_name(base="", prefix="stacklight-pytest-", postfix=""):
+    return "{prefix}{base}{rand}{postfix}".format(
+        prefix=prefix,
+        base=base,
+        rand=random.randrange(100, 999),
+        postfix=postfix,)
