@@ -74,22 +74,23 @@ class TestFunctional(base_test.BaseLMATest):
         Duration 20m
         """
         time_started = "{}s".format(int(time.time()))
-        metrics = self.influxdb_api.get_instance_creation_time_metrics(
-            time_started)
+        check_metrics = self.influxdb_api.get_instance_creation_time_metrics
+        metrics = check_metrics(time_started)
 
         new_instance_count = 3
-        for identifier in range(new_instance_count):
-            self.create_basic_server()
+        new_servers = []
+        for _ in range(new_instance_count):
+            new_servers.append(self.create_basic_server())
 
-        updated_metrics = self.influxdb_api.get_instance_creation_time_metrics(
-            time_started)
         total_instances = new_instance_count + len(metrics)
-        assert len(updated_metrics) == total_instances, (
-            "There is a mismatch of instances in Nova metrics, "
-            "found {instances_found} instead of {total_instances}".format(
-                instances_found=len(updated_metrics),
-                total_instances=total_instances)
-        )
+
+        msg = ("There is a mismatch of instances in Nova metrics, "
+               "found less than {}".format(total_instances))
+        utils.wait(
+            (lambda: len(check_metrics(time_started)) == total_instances),
+            interval=10, timeout=180, timeout_msg=msg)
+        for server in new_servers:
+            self.os_clients.compute.servers.delete(server)
 
     def test_nova_logs_in_elasticsearch(self):
         """Check that Nova logs are present in Elasticsearch
