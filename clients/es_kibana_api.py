@@ -1,4 +1,10 @@
+import logging
+
 import elasticsearch
+
+import utils
+
+logger = logging.getLogger(__name__)
 
 
 class EsKibanaApi(object):
@@ -21,3 +27,23 @@ class EsKibanaApi(object):
                     "filter": {"bool": {"must": {"range": {
                         "Timestamp": {"from": time_range}}}}}}},
                 "size": size})
+
+    def check_notifications(self, expected_notifications, timeout=300,
+                            interval=10, **kwargs):
+        def _verify_notifications(expected_list):
+            output = self.query_elasticsearch(**kwargs)
+            got_list = list(
+                set([hit["_source"]["event_type"]
+                     for hit in output["hits"]["hits"]]))
+            for event_type in expected_list:
+                if event_type not in got_list:
+                    logger.info("{} event type not found in {}".format(
+                        event_type, got_list))
+                    return False
+            return True
+
+        logger.info("Waiting to get all notifications")
+        msg = "Timed out waiting to get all notifications"
+        utils.wait(
+            lambda: _verify_notifications(expected_notifications),
+            timeout=timeout, interval=interval, timeout_msg=msg)
