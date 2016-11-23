@@ -38,13 +38,15 @@ except ImportError:
     # LOG.exception()
     LOG.warning('Artifacts client could not be imported')
 
+import utils
+
 
 class OfficialClientManager(object):
     """Manager that provides access to the official python clients for
     calling various OpenStack APIs.
     """
 
-    CINDERCLIENT_VERSION = 2
+    CINDERCLIENT_VERSION = 3
     GLANCECLIENT_VERSION = 2
     HEATCLIENT_VERSION = 1
     KEYSTONECLIENT_VERSION = 2, 0
@@ -244,3 +246,161 @@ class OfficialClientManager(object):
                 self.cert, self.domain, endpoint_type=self.endpoint_type
             )
         return self._orchestration
+
+
+class OSCliActionsMixin(object):
+    def get_admin_tenant(self):
+        return self.os_clients.auth.tenants.find(name="admin")
+
+    def get_cirros_image(self):
+        return list(self.os_clients.image.images.list(name='TestVM'))[0]
+
+    def get_micro_flavor(self):
+        return self.os_clients.compute.flavors.list(sort_key="memory_mb")[0]
+
+    def get_internal_network(self):
+        return self.os_clients.network.list_networks(
+            **{'router:external': False, 'status': 'ACTIVE'})['networks'][0]
+
+    def get_external_network(self):
+        return self.os_clients.network.list_networks(
+            **{'router:external': True, 'status': 'ACTIVE'})['networks'][0]
+
+    def create_flavor(self, name, ram=256, vcpus=1, disk=2):
+        return self.os_clients.compute.flavors.create(name, ram, vcpus, disk)
+
+    def create_sec_group(self, rulesets=None):
+        if rulesets is None:
+            rulesets = [
+                {
+                    # ssh
+                    'ip_protocol': 'tcp',
+                    'from_port': 22,
+                    'to_port': 22,
+                    'cidr': '0.0.0.0/0',
+                },
+                {
+                    # ping
+                    'ip_protocol': 'icmp',
+                    'from_port': -1,
+                    'to_port': -1,
+                    'cidr': '0.0.0.0/0',
+                }
+            ]
+        sg_name = utils.rand_name("secgroup-")
+        sg_desc = sg_name + " description"
+        secgroup = self.os_clients.compute.security_groups.create(
+            sg_name, sg_desc)
+        for ruleset in rulesets:
+            self.os_clients.compute.security_group_rules.create(
+                secgroup.id, **ruleset)
+        return secgroup
+
+    def create_basic_server(self, image=None, flavor=None, net=None,
+                            sec_groups=(), wait_timeout=3*60):
+        os_conn = self.os_clients
+        image = image or self.get_cirros_image()
+        flavor = flavor or self.get_micro_flavor()
+        net = net or self.get_internal_network()
+        kwargs = {}
+        if sec_groups:
+            kwargs['security_groups'] = sec_groups
+        server = os_conn.compute.servers.create(
+            utils.rand_name("server-"),
+            image, flavor, nics=[{"net-id": net["id"]}], **kwargs)
+        if wait_timeout:
+            utils.wait(
+                lambda: os_conn.compute.servers.get(server).status == "ACTIVE",
+                timeout=wait_timeout,
+                timeout_msg=(
+                    "Create server {!r} failed by timeout. "
+                    "Please, take a look at OpenStack logs".format(server.id)))
+        return server
+
+    def create_network(self, tenant_id):
+        net_name = utils.rand_name("net-")
+        net_body = {
+            'network': {
+                'name': net_name,
+                'tenant_id': tenant_id
+            }
+        }
+        net = self.os_clients.network.create_network(net_body)['network']
+        return net
+        # yield net
+        # self.os_clients.network.delete_network(net['id'])
+
+    def create_subnet(self, net, tenant_id):
+        subnet_body = {
+            'subnet': {
+                'network_id': net['id'],
+                'ip_version': 4,
+                'cidr': '10.1.7.0/24',
+                'tenant_id': tenant_id
+            }
+        }
+        subnet = self.os_clients.network.create_subnet(subnet_body)['subnet']
+        return subnet
+        # yield subnet
+        # self.os_clients.network.delete_subnet(subnet['id'])
+
+    def create_router(self, ext_net, tenant_id):
+        name = utils.rand_name('router-')
+        router_body = {
+            'router': {
+                'name': name,
+                'external_gateway_info': {
+                    'network_id': ext_net['id']
+                },
+                'tenant_id': tenant_id
+            }
+        }
+        router = self.os_clients.network.create_router(router_body)['router']
+        return router
+        # yield router
+        # self.os_clients.network.delete_router(router['id'])
+
+    def create_network_resources(self):
+        tenant_id = self.get_admin_tenant().id
+        ext_net = self.get_external_network()
+        net = self.create_network(tenant_id)
+        subnet = self.create_subnet(net, tenant_id)
+        router = self.create_router(ext_net, tenant_id)
+        self.os_clients.network.add_interface_router(
+            router['id'], {'subnet_id': subnet['id']})
+
+        private_net_id = net['id']
+        floating_ip_pool = ext_net['id']
+
+        return private_net_id, floating_ip_pool
+        # yield private_net_id, floating_ip_pool
+        #
+        # self.os_clients.network.remove_interface_router(
+        #     router['id'], {'subnet_id': subnet['id']})
+        # self.os_clients.network.remove_gateway_router(router['id'])
+
+    def create_stack(self, template, disable_rollback=True, parameters=None,
+                     wait_active=True):
+        parameters = parameters or {}
+        stack_name = utils.rand_name('stack-')
+        stack_id = self.os_clients.orchestration.stacks.create(
+            stack_name=stack_name,
+            template=template,
+            parameters=parameters,
+            disable_rollback=disable_rollback
+        )['stack']['id']
+
+        # self.addCleanup(self.delete_stack, stack_id)
+
+        # heat client doesn't return stack details after creation
+        # so need to request them
+        stack = self.os_clients.orchestration.stacks.get(stack_id)
+        if wait_active:
+            utils.wait(
+                (lambda:
+                 self.os_clients.orchestration.stacks.get(
+                     stack_id).stack_status == "CREATE_COMPLETE"),
+                interval=10,
+                timeout=180,
+            )
+        return stack

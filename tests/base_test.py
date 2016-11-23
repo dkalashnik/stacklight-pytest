@@ -1,6 +1,5 @@
 from functools import partial
 import logging
-import random
 
 import yaml
 
@@ -14,7 +13,7 @@ import utils
 logger = logging.getLogger(__name__)
 
 
-class BaseLMATest(object):
+class BaseLMATest(os_clients.OSCliActionsMixin):
     OKAY_STATUS = 0
     WARNING_STATUS = 1
     UNKNOWN_STATUS = 2
@@ -168,28 +167,3 @@ class BaseLMATest(object):
                 hostname=None,
                 value=status)
 
-    def get_cirros_image(self):
-        return list(self.os_clients.image.images.list(name='TestVM'))[0]
-
-    def get_micro_flavor(self):
-        return self.os_clients.compute.flavors.list(sort_key="memory_mb")[0]
-
-    def get_internal_network(self):
-        return [
-            net for net in self.os_clients.network.list_networks()['networks']
-            if "internal" in net['name']][0]
-
-    def create_basic_server(self, wait_timeout=3*60):
-        os_conn = self.os_clients
-        cirros_image = self.get_cirros_image()
-        micro_flavor = self.get_micro_flavor()
-        net = self.get_internal_network()
-        server = os_conn.compute.servers.create(
-            "Stacklight_pytest_{}".format(random.randrange(100, 999)),
-            cirros_image, micro_flavor, nics=[{"net-id": net["id"]}])
-        utils.wait(
-            lambda: os_conn.compute.servers.get(server).status == "ACTIVE",
-            timeout=wait_timeout,
-            timeout_msg="Create server {!r} failed by timeout. Please, take"
-                        " a look at OpenStack logs".format(server.id))
-        return server
