@@ -148,15 +148,15 @@ class TestAlerts(base_test.BaseLMATest):
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
             "\" | mysql")
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="upper")
-        )
-
-        yield
-
-        exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="lower")
-        )
+            cmd.format(db_name=db_name, method="upper"))
+        try:
+            yield
+        finally:
+            # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+            exit_code, _, _ = controller.os.transport.exec_sync(
+                cmd.format(db_name=db_name, method="lower"))
 
     import pytest
     #@pytest.mark.foo
