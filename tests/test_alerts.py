@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import time
 
 from tests import base_test
 
@@ -148,15 +149,15 @@ class TestAlerts(base_test.BaseLMATest):
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
             "\" | mysql")
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="upper")
-        )
-
-        yield
-
-        exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="lower")
-        )
+            cmd.format(db_name=db_name, method="upper"))
+        try:
+            yield
+        finally:
+            # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+            exit_code, _, _ = controller.os.transport.exec_sync(
+                cmd.format(db_name=db_name, method="lower"))
 
     import pytest
     #@pytest.mark.foo
@@ -391,6 +392,42 @@ class TestAlerts(base_test.BaseLMATest):
             get_objects_list, 10, metrics, self.WARNING_STATUS)
 
         controller.os.transport.exec_sync('initctl start swift-account')
+
+    def test_hdd_errors_alarms(self):
+        """Check that hdd-errors-critical alarm works as expected.
+
+        Scenario:
+            1. Generate errors entries in kernel log: in /var/log/kern.log
+            2. Check the last value of the hdd-errors-critical
+               alarm in InfluxDB.
+
+        Duration 10m
+        """
+
+        def poison_kern_log_with_hdd_errors():
+            kernel_log = "/var/log/kern.log"
+            prefix = "<5>{timestamp} {hostname} kernel: [ 3525.262016] "
+            messages = (
+                "Buffer I/O error on device vda2, logical block 51184",
+                "XFS (vda): xfs_log_force: error 5 returned.",
+                "XFS (vdb2): metadata I/O error: block 0x68c2b7d8 "
+                "(\"xfs_trans_read_buf_map\") error 121 numblks 8",
+            )
+            for msg in messages:
+                for repeat in range(10):
+                    curr_timestamp = time.strftime("%b  %-d %H:%M:%S")
+                    curr_msg = "{prefix}{msg}".format(
+                        prefix=prefix.format(timestamp=curr_timestamp,
+                                             hostname=hostname),
+                        msg=msg)
+                    compute.os.write_to_file(kernel_log, curr_msg)
+                    time.sleep(1)
+
+        compute = self.cluster.filter_by_role("compute").first()
+        hostname = compute.hostname
+        poison_kern_log_with_hdd_errors()
+        self.influxdb_api.check_alarms(
+            "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
 
     # def check_rabbitmq_pacemaker_alarms(self):

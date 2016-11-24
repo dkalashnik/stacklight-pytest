@@ -41,21 +41,22 @@ class GeneralActionsClient(object):
 
     def graceful_reboot(self):
         logger.info("Grace reboot node: {0}".format(self.hostname))
-        self.transport.exec_command("/sbin/reboot > /dev/null 2>&1 &")
+        self.exec_command("/sbin/reboot > /dev/null 2>&1 &")
 
     def force_reboot(self):
         logger.info("Force reboot node: {0}".format(self.hostname))
-        self.transport.exec_command("/sbin/reboot -f > /dev/null 2>&1 &")
+        self.exec_command("/sbin/reboot -f > /dev/null 2>&1 &")
 
     def get_pids(self, process_name):
         cmd = ("ps -ef | grep %s | grep -v 'grep' | "
                "awk {'print $2'}" % process_name)
-        return self.transport.exec_command(cmd).strip().split('\n')
+        return self.exec_command(cmd).strip().split('\n')
 
     def kill_process_by_pid(self, pid):
         logger.info("Killing process pid {0} on node {1}"
                     .format(pid, self.hostname))
-        self.transport.exec_command("kill -9 {0}".format(pid))
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+        self.exec_command("kill -9 {0}".format(pid))
 
     def kill_process_by_name(self, process_name):
         logger.info("Killing {0} processes on node {1}"
@@ -66,9 +67,12 @@ class GeneralActionsClient(object):
     def killall_processes(self, process_name):
         logger.info("Kill all processes {0} on node {1}"
                     .format(process_name, self.hostname))
-        self.transport.exec_command("killall -9 {0}".format(process_name))
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+        self.exec_command("killall -9 {0}".format(process_name))
 
     def check_process(self, name):
+        # TODO(rpromyshlennikov): can't work, because exec_command
+        # returns only output
         ret_code, _, _ = self.transport.exec_command(
             "ps ax | grep {0} | grep -v grep".format(name))
         if ret_code == 0:
@@ -105,6 +109,7 @@ class GeneralActionsClient(object):
             if excluded_criteria else "")
         cmd = "brctl show | awk '/br-/{{print $1}}'{excluded}".format(
             excluded=excluded_criteria_cmd)
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         interfaces = self.exec_command(cmd)
         return [iface.strip() for iface in interfaces]
 
@@ -119,6 +124,7 @@ class GeneralActionsClient(object):
         method = 'up' if up else 'down'
         cmd = "if{method} {interface}".format(method=method,
                                               interface=interface)
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command(cmd)
 
     def simulate_network_interrupt_on_node(self, interval=30):
@@ -160,6 +166,7 @@ class GeneralActionsClient(object):
         cmd = "pcs resource ban {}".format(resource)
         if wait is not None:
             cmd = "{} --wait={}".format(cmd, wait)
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command(cmd)
 
     def clear_resource(self, resource, wait=None):
@@ -173,6 +180,7 @@ class GeneralActionsClient(object):
         cmd = "pcs resource clear {}".format(resource)
         if wait is not None:
             cmd = "{} --wait={}".format(cmd, wait)
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command(cmd)
 
     def manage_pacemaker_service(self, name, operation="restart"):
@@ -183,6 +191,7 @@ class GeneralActionsClient(object):
             :param operation: type of operation, usually start, stop or restart.
             :type operation: str
         """
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("crm resource {operation} {service}".format(
             operation=operation, service=name))
 
@@ -202,6 +211,7 @@ class GeneralActionsClient(object):
         else:
             service_cmd = 'service {service} {operation}'
 
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command(service_cmd.format(service=name,
                                              operation=operation))
 
@@ -209,6 +219,7 @@ class GeneralActionsClient(object):
         """Clean local mail
 
         """
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("rm -f $MAIL")
 
     def fill_up_filesystem(self, fs, percent, file_name):
@@ -227,6 +238,7 @@ class GeneralActionsClient(object):
             "fallocate -l $(df | grep {} | awk '{{ printf(\"%.0f\\n\", "
             "1024 * ((($3 + $4) * {} / 100) - $3))}}') {}".format(
                 fs, percent, file_name))
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command(cmd)
 
     def clean_filesystem(self, filename):
@@ -236,4 +248,11 @@ class GeneralActionsClient(object):
             :type filename: str
         """
         logger.info("Removing {} file".format(filename))
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("rm -f {}".format(filename))
+
+    def write_to_file(self, filename, line, append=True):
+        op = ">>" if append else ">"
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+        self.exec_command("echo '{line}' {op} {filename}".format(
+            line=line, op=op, filename=filename))
