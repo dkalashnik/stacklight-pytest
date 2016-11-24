@@ -250,3 +250,9 @@ class GeneralActionsClient(object):
         logger.info("Removing {} file".format(filename))
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("rm -f {}".format(filename))
+
+    def write_to_file(self, filename, line, append=True):
+        op = ">>" if append else ">"
+        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
+        self.exec_command("echo '{line}' {op} {filename}".format(
+            line=line, op=op, filename=filename))
