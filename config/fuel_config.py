@@ -107,6 +107,18 @@ class FuelConfig(object):
             "elasticsearch_port":
                 self.get_hiera_value(monitoring_ssh,
                                      "lma::elasticsearch::rest_port"),
+            "grafana_vip":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::grafana::vip"),
+            "grafana_port":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::influxdb::grafana_frontend_port"),
+            "grafana_username":
+                self.get_hiera_value(monitoring_ssh,
+                                     "lma::grafana::mysql::admin_username"),
+            "grafana_password":
+                clean_password(self.get_hiera_value(
+                    monitoring_ssh, "lma::grafana::mysql::admin_password")),
 
         }
         return lma_config

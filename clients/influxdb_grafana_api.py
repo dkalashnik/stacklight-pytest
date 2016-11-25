@@ -13,6 +13,29 @@ class TestHTTPAdapter(requests.adapters.HTTPAdapter):
         self.poolmanager = poolmanager.PoolManager(assert_hostname=False)
 
 
+def check_http_get_response(url, expected_code=200, msg=None, **kwargs):
+    """Perform a HTTP GET request and assert that the HTTP server replies with
+    the expected code.
+    :param url: the requested URL
+    :type url: str
+    :param expected_code: the expected HTTP response code. Defaults to 200
+    :type expected_code: int
+    :param msg: the assertion message. Defaults to None
+    :type msg: str
+    :returns: HTTP response object
+    :rtype: requests.Response
+    """
+    session = requests.Session()
+    session.mount("https://", TestHTTPAdapter())
+    cert = utils.get_fixture("rootCA.pem")
+    msg = msg or "%s responded with {0}, expected {1}" % url
+    response = session.get(url, verify=cert, **kwargs)
+    if expected_code is not None:
+        assert response.status_code == expected_code, msg
+    # print(response.content)
+    return response
+
+
 class InfluxdbApi(object):
     def __init__(self, address, port, username, password, db_name):
         super(InfluxdbApi, self).__init__()
@@ -24,31 +47,8 @@ class InfluxdbApi(object):
 
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
 
-    def check_http_get_response(self, url, expected_code=200,
-                                msg=None, **kwargs):
-        """Perform a HTTP GET request and assert that the HTTP server replies with
-        the expected code.
-        :param url: the requested URL
-        :type url: str
-        :param expected_code: the expected HTTP response code. Defaults to 200
-        :type expected_code: int
-        :param msg: the assertion message. Defaults to None
-        :type msg: str
-        :returns: HTTP response object
-        :rtype: requests.Response
-        """
-        s = requests.Session()
-        s.mount("https://", TestHTTPAdapter())
-        cert = utils.get_fixture("rootCA.pem")
-        msg = msg or "%s responded with {0}, expected {1}" % url
-        r = s.get(url, verify=cert, **kwargs)
-
-        assert(r.status_code == expected_code)
-        print(r.content)
-        return r
-
     def do_influxdb_query(self, query, expected_code=200):
-        return self.check_http_get_response(
+        return check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
             expected_code=expected_code,
             params={
@@ -109,3 +109,47 @@ class InfluxdbApi(object):
         if result:
             return result["series"][0]["values"]
         return []
+
+
+class GrafanaApi(object):
+    def __init__(self, address, port, username, password, tls=False):
+        super(GrafanaApi, self).__init__()
+        self.address = address
+        self.port = port
+        self.username = username
+        self.password = password
+        self.auth = (username, password)
+        scheme = "https" if tls else "http"
+        self.grafana_api_url = "{scheme}://{host}:{port}/api".format(
+            scheme=scheme, host=address, port=port)
+
+    def get_api_url(self, resource=""):
+        return "{}{}".format(self.grafana_api_url, resource)
+
+    def check_grafana_online(self):
+        check_http_get_response(self.grafana_api_url.replace("/api", "/login"))
+        check_http_get_response(self.get_api_url('/org'), auth=self.auth)
+        check_http_get_response(
+            self.get_api_url('/org'),
+            auth=('agent', 'rogue'), expected_code=401)
+
+    def _get_raw_dashboard(self, name):
+        dashboard_url = self.get_api_url("/dashboards/db/{}".format(name))
+        response = check_http_get_response(dashboard_url, auth=self.auth)
+        if response.status_code == 200:
+            return response
+        elif response.status_code == 404:
+            return None
+        else:
+            response.raise_for_status()
+
+    def get_dashboard(self, name):
+        raw_dashboard = self._get_raw_dashboard(name)
+        if raw_dashboard:
+            return raw_dashboard.json()
+        return None
+
+    def is_dashboard_exists(self, name):
+        if self._get_raw_dashboard(name):
+            return True
+        return False
