@@ -102,3 +102,49 @@ class TestSmoke(base_test.BaseLMATest):
                "panels that are not presented: {}")
         assert dashboard_names == available_dashboards_names, (
             msg.format(dashboard_names - available_dashboards_names))
+
+    def test_openstack_service_metrics_presented(self):
+        table = "openstack_check_local_api"
+        services = (
+            "cinder-api",
+            "cinder-v2-api",
+            "glance-api",
+            "heat-api",
+            "heat-cfn-api",
+            "keystone-public-api",
+            "neutron-api",
+            "nova-api",
+            "swift-api",
+            "swift-s3-api",
+        )
+        query = ("select last(value) "
+                 "from {table} "
+                 "where time >= now() - 1m and service = '{service}'")
+        for service in services:
+            query = query.format(table=table, service=service)
+            assert len(self.influxdb_api.do_influxdb_query(
+                query).json()['results'][0])
+
+    def test_openstack_services_alarms_presented(self):
+        table = "service_status"
+        services = (
+            "cinder-api-endpoint",
+            "cinder-v2-api-endpoint",
+            "glance-api-endpoint",
+            "heat-api-endpoint",
+            "heat-cfn-api-endpoint",
+            "keystone-public-api-endpoint",
+            "neutron-api-endpoint",
+            "nova-api-endpoint",
+            "swift-api-endpoint",
+            "swift-s3-api-endpoint",
+        )
+        query = ("select last(value) "
+                 "from {table} "
+                 "where time >= now() - 1m "
+                 "and service = '{service}' "
+                 "and source='endpoint'")
+        for service in services:
+            query = query.format(table=table, service=service)
+            assert len(self.influxdb_api.do_influxdb_query(
+                query).json()['results'][0])

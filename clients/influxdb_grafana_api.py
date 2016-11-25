@@ -76,8 +76,8 @@ class InfluxdbApi(object):
             filters=" and ".join(filters))
 
         def check_result():
-            return len(self.do_influxdb_query(query=query)
-                       .json()['results'][0])
+            return len(self.do_influxdb_query(
+                query=query).json()['results'][0])
 
         msg = ("Alarm of type: {}: entity: {}, source:{}, hostname: {}, "
                "value: {} wasn't triggered".format(alarm_type, filter_value,
