@@ -4,7 +4,7 @@ import logging
 import yaml
 
 from clients import es_kibana_api
-from clients import influxdb_api
+from clients import influxdb_grafana_api
 from clients.openstack import client_manager as os_clients
 import objects
 import utils
@@ -41,12 +41,19 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             )
 
         lma = cls.config.get("lma")
-        cls.influxdb_api = influxdb_api.InfluxdbApi(
+        cls.influxdb_api = influxdb_grafana_api.InfluxdbApi(
             address=lma["influxdb_vip"],
             port=lma["influxdb_port"],
             username=lma["influxdb_username"],
             password=lma["influxdb_password"],
             db_name=lma["influxdb_db_name"]
+        )
+
+        cls.grafana_api = influxdb_grafana_api.GrafanaApi(
+            address=lma["grafana_vip"],
+            port=lma["grafana_port"],
+            username=lma["grafana_username"],
+            password=lma["grafana_password"],
         )
 
         cls.es_kibana_api = es_kibana_api.EsKibanaApi(

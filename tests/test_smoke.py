@@ -59,3 +59,92 @@ class TestSmoke(base_test.BaseLMATest):
                 query_filter="programname:{service}".format(service=service))
             assert output['hits']['total'] != 0, (
                 "Indexes don't contain {service} logs".format(service=service))
+
+    def test_display_grafana_dashboards_toolchain(self):
+        """Verify that the dashboards show up in the Grafana UI.
+
+        Scenario:
+            1. Go to the Main dashboard and verify that everything is ok
+            2. Repeat the previous step for the following dashboards:
+                * Apache
+                * Cinder
+                * Elasticsearch
+                * Glance
+                * HAProxy
+                * Heat
+                * Hypervisor
+                * InfluxDB
+                * Keystone
+                * LMA self-monitoring
+                * Memcached
+                * MySQL
+                * Neutron
+                * Nova
+                * RabbitMQ
+                * System
+
+        Duration 20m
+        """
+        self.grafana_api.check_grafana_online()
+        dashboard_names = {
+            "Apache", "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
+            "Hypervisor", "InfluxDB", "Keystone", "LMA self-monitoring",
+            "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
+        }
+        dashboard_names = {panel_name.lower().replace(" ", "-")
+                           for panel_name in dashboard_names}
+
+        available_dashboards_names = set()
+        for name in dashboard_names:
+            if self.grafana_api.is_dashboard_exists(name):
+                available_dashboards_names.add(name)
+        msg = ("There is not enough panels in available panels, "
+               "panels that are not presented: {}")
+        assert dashboard_names == available_dashboards_names, (
+            msg.format(dashboard_names - available_dashboards_names))
+
+    def test_openstack_service_metrics_presented(self):
+        table = "openstack_check_local_api"
+        services = (
+            "cinder-api",
+            "cinder-v2-api",
+            "glance-api",
+            "heat-api",
+            "heat-cfn-api",
+            "keystone-public-api",
+            "neutron-api",
+            "nova-api",
+            "swift-api",
+            "swift-s3-api",
+        )
+        query = ("select last(value) "
+                 "from {table} "
+                 "where time >= now() - 1m and service = '{service}'")
+        for service in services:
+            query = query.format(table=table, service=service)
+            assert len(self.influxdb_api.do_influxdb_query(
+                query).json()['results'][0])
+
+    def test_openstack_services_alarms_presented(self):
+        table = "service_status"
+        services = (
+            "cinder-api-endpoint",
+            "cinder-v2-api-endpoint",
+            "glance-api-endpoint",
+            "heat-api-endpoint",
+            "heat-cfn-api-endpoint",
+            "keystone-public-api-endpoint",
+            "neutron-api-endpoint",
+            "nova-api-endpoint",
+            "swift-api-endpoint",
+            "swift-s3-api-endpoint",
+        )
+        query = ("select last(value) "
+                 "from {table} "
+                 "where time >= now() - 1m "
+                 "and service = '{service}' "
+                 "and source='endpoint'")
+        for service in services:
+            query = query.format(table=table, service=service)
+            assert len(self.influxdb_api.do_influxdb_query(
+                query).json()['results'][0])
