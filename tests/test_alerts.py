@@ -28,7 +28,7 @@ class TestAlerts(base_test.BaseLMATest):
         controller = self.cluster.get_random_controller()
         self.check_filesystem_alarms(
             controller, "/dev/mapper/mysql-root", "mysql-fs",
-            "/var/lib/mysql/test/bigfile", "mysql-nodes")
+            "/var/lib/mysql/bigfile", "mysql-nodes")
 
     def test_check_rabbitmq_disk_alarm(self):
         """Check that rabbitmq-disk-limit-warning and
