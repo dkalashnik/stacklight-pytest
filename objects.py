@@ -47,15 +47,15 @@ class Cluster(object):
         for host in self.hosts:
             if host.address == address:
                 return host
-        return exceptions.NoValidHost(condition="address == {0}"
-                                      .format(address))
+        return exceptions.NoValidHost(
+            condition="address == {0}".format(address))
 
     def get_by_hostname(self, hostname):
         for host in self.hosts:
             if hostname in host.hostname or host.hostname == hostname:
                 return host
-        raise exceptions.NoValidHost(condition="hostname == {0}"
-                                     .format(hostname))
+        raise exceptions.NoValidHost(
+            condition="hostname == {0}".format(hostname))
 
     def add_host(self, host):
         if not isinstance(host, Host):
