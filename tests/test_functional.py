@@ -1,6 +1,9 @@
 import logging
 import time
 
+import pytest
+
+import settings
 from tests import base_test
 import utils
 
@@ -496,3 +499,131 @@ class TestFunctional(base_test.BaseLMATest):
         self.es_kibana_api.check_notifications(
             cinder_event_types, index_type="notification",
             query_filter='volume_id:"{}"'.format(volume.id), size=500)
+
+    @pytest.mark.parametrize(
+        "controllers_count", [1, 2], ids=["warning", "critical"])
+    def test_toolchain_alert_service(self, controllers_count):
+        """Verify that the warning and critical alerts for services
+        show up in the Grafana and Nagios UI.
+
+        Scenario:
+            1. Connect to one (for warning) or two (for critical) of
+               the controller nodes using ssh and stop the nova-api service.
+            2. Wait for at least 1 minute.
+            3. On Grafana, check the following items:
+                    - the box in the upper left corner of the dashboard
+                      displays 'WARN' or 'CRIT' with an orange/red background,
+                    - the API panels report 1/2 entity as down.
+            4. Check count of haproxy backends with down state in InfluxDB
+               if there is backend in haproxy for checked service.
+            5. Check email about service state.
+            6. Start the nova-api service.
+            7. Wait for at least 1 minute.
+            8. On Grafana, check the following items:
+                    - the box in the upper left corner of the dashboard
+                      displays 'OKAY' with an green background,
+                    - the API panels report 0 entity as down.
+            9. Check count of haproxy backends with down state in InfluxDB.
+            10. Check email about service state.
+            11. Repeat steps 2 to 8 for the following services:
+                    - Nova (stopping and starting the nova-api and
+                      nova-scheduler)
+                    - Cinder (stopping and starting the cinder-api and
+                      cinder-scheduler services respectively).
+                    - Neutron (stopping and starting the neutron-server
+                      and neutron-openvswitch-agent services respectively).
+                    - Glance (stopping and starting the glance-api service).
+                    - Heat (stopping and starting the heat-api service).
+                    - Keystone (stopping and starting the Apache service).
+
+        Duration 25m
+        """
+        def verify_service_state_change(service_names, action, new_state,
+                                        service_state_in_influx,
+                                        down_backends_in_haproxy,):
+
+            logger.info("Changing state of service {0}. "
+                        "New state is {1}".format(service_names[0], new_state))
+
+            for toolchain_node in toolchain_nodes:
+                toolchain_node.os.clear_local_mail()
+            for node in controller_nodes:
+                node.os.manage_service(service_names[0], action)
+            self.influxdb_api.check_cluster_status(
+                service_names[1], service_state_in_influx)
+            if service_names[3]:
+                self.influxdb_api.check_count_of_haproxy_backends(
+                    service_names[3], expected_count=down_backends_in_haproxy)
+            utils.wait(
+                lambda: (
+                    any(t_node.os.check_local_mail(service_names[2], new_state)
+                        for t_node in toolchain_nodes)),
+                timeout=5*60, interval=15
+            )
+
+        statuses = {1: (self.WARNING_STATUS, "WARNING"),
+                    2: (self.CRITICAL_STATUS, "CRITICAL")}
+
+        components = {
+            "nova": [("nova-api", "nova-api"), ("nova-scheduler", None)],
+            "cinder": [("cinder-api", "cinder-api"),
+                       ("cinder-scheduler", None)],
+            "neutron": [
+                ("neutron-server", "neutron-api"),
+                # TODO(rpromyshlennikov): temporary fix,
+                # because openvswitch-agent is managed by pacemaker
+                # ("neutron-openvswitch-agent", None)
+            ],
+            "glance": [("glance-api", "glance-api")],
+            "heat": [("heat-api", "heat-api")],
+            "keystone": [("apache2", "keystone-public-api")]
+        }
+
+        services_names_in_alerting = {}
+        services_names_in_influx = {}
+        for component in components:
+            influx_service_name = component
+            if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("0."):
+                nagios_service_name = component
+            else:
+                nagios_service_name = "global-{}".format(component)
+                if component in ("nova", "neutron", "cinder"):
+                    nagios_service_name = "{}-control-plane".format(
+                        nagios_service_name)
+                    influx_service_name = "{}-control-plane".format(
+                        influx_service_name)
+
+            services_names_in_alerting[component] = nagios_service_name
+            services_names_in_influx[component] = influx_service_name
+
+        toolchain_nodes = self.cluster.filter_by_role(
+            "infrastructure_alerting")
+        controller_nodes = self.cluster.filter_by_role(
+            "controller")[:controllers_count]
+
+        for component in components:
+            for (service, haproxy_backend) in components[component]:
+                logger.info("Checking service {0}".format(service))
+                verify_service_state_change(
+                    service_names=[
+                        service,
+                        services_names_in_influx[component],
+                        services_names_in_alerting[component],
+                        haproxy_backend],
+                    action="stop",
+                    new_state=statuses[controllers_count][1],
+                    service_state_in_influx=statuses[controllers_count][0],
+                    down_backends_in_haproxy=controllers_count,
+                )
+                verify_service_state_change(
+                    service_names=[
+                        service,
+                        services_names_in_influx[component],
+                        services_names_in_alerting[component],
+                        haproxy_backend],
+                    action="start",
+                    new_state="OK",
+                    service_state_in_influx=self.OKAY_STATUS,
+                    down_backends_in_haproxy=0,
+                )
+

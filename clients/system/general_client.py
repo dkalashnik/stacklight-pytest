@@ -2,6 +2,7 @@ import logging
 import socket
 
 from clients.system import ssh
+import custom_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -258,3 +259,23 @@ class GeneralActionsClient(object):
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("echo '{line}' {op} {filename}".format(
             line=line, op=op, filename=filename))
+
+    def check_local_mail(self, service, state):
+        """Check that email from LMA Infrastructure Alerting plugin
+        about service changing it's state is presented on a host.
+
+        :param service: service to look for.
+        :type service: str
+        :param state: status of service to check.
+        :type state: str
+        """
+        try:
+            _, stdout, _ = self.check_call("cat $MAIL")
+            if not stdout:
+                return False
+            if ("Service: {}\n".format(service) in stdout and
+                    "State: {}\n".format(state) in stdout):
+                return True
+        except custom_exceptions.SSHCommandFailed:
+            return False
+
