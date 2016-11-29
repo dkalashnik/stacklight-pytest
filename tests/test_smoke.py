@@ -10,7 +10,7 @@ class TestSmoke(base_test.BaseLMATest):
             1. Check that logs are collected for all known services
                to current Elasticsearch index
 
-        Duration 15m
+        Duration 5m
         """
         known_services = {
             'CRON', 'api', 'attrd',
@@ -83,7 +83,7 @@ class TestSmoke(base_test.BaseLMATest):
                 * RabbitMQ
                 * System
 
-        Duration 20m
+        Duration 5m
         """
         self.grafana_api.check_grafana_online()
         dashboard_names = {
@@ -104,6 +104,24 @@ class TestSmoke(base_test.BaseLMATest):
             msg.format(dashboard_names - available_dashboards_names))
 
     def test_openstack_service_metrics_presented(self):
+        """Verify the new metrics '<openstack._service>.api were
+        created in InfluxDB
+
+        Scenario:
+            1. Check "cinder-api" metric in InfluxDB
+            2. Repeat the previous step for the following services:
+                * "cinder-v2-api"
+                * "glance-api"
+                * "heat-api"
+                * "heat-cfn-api"
+                * "keystone-public-api"
+                * "neutron-api"
+                * "nova-api"
+                * "swift-api"
+                * "swift-s3-api"
+
+        Duration 5m
+        """
         table = "openstack_check_local_api"
         services = (
             "cinder-api",
@@ -126,6 +144,24 @@ class TestSmoke(base_test.BaseLMATest):
                 query).json()['results'][0])
 
     def test_openstack_services_alarms_presented(self):
+        """Verify that alarms for ''openstack_<service>_api'' were
+        created in InfluxDB
+
+        Scenario:
+            1. Check "cinder-api-endpoint" alarm in InfluxDB
+            2. Repeat the previous step for the following endpoints:
+                * "cinder-v2-api-endpoint"
+                * "glance-api-endpoint"
+                * "heat-api-endpoint"
+                * "heat-cfn-api-endpoint"
+                * "keystone-public-api-endpoint"
+                * "neutron-api-endpoint"
+                * "nova-api-endpoint"
+                * "swift-api-endpoint"
+                * "swift-s3-api-endpoint"
+
+        Duration 5m
+        """
         table = "service_status"
         services = (
             "cinder-api-endpoint",

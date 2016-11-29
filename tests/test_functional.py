@@ -71,7 +71,7 @@ class TestFunctional(base_test.BaseLMATest):
             1. Create 3 new instances
             2. Check Nova metrics in InfluxDB
 
-        Duration 20m
+        Duration 5m
         """
         time_started = "{}s".format(int(time.time()))
         check_metrics = self.influxdb_api.get_instance_creation_time_metrics
@@ -100,7 +100,7 @@ class TestFunctional(base_test.BaseLMATest):
             2. Check that Nova logs are collected from all controller and
                compute nodes
 
-        Duration 10m
+        Duration 5m
         """
         output = self.es_kibana_api.query_elasticsearch(
             index_type="log", query_filter="programname:nova*", size=500)
@@ -124,7 +124,7 @@ class TestFunctional(base_test.BaseLMATest):
             2. Check that Nova notifications are present in current
                Elasticsearch index
 
-        Duration 25m
+        Duration 15m
         """
         nova_event_types = [
             "compute.instance.create.start", "compute.instance.create.end",
@@ -220,7 +220,7 @@ class TestFunctional(base_test.BaseLMATest):
             2. Check that Glance notifications are present in current
                Elasticsearch index
 
-        Duration 25m
+        Duration 15m
         """
         glance_event_types = ["image.create", "image.prepare", "image.upload",
                               "image.activate", "image.update", "image.delete"]
@@ -257,7 +257,7 @@ class TestFunctional(base_test.BaseLMATest):
             2. Check that Keystone notifications are present in current
                Elasticsearch index
 
-        Duration 25m
+        Duration 15m
         """
         keystone_event_types = [
             "identity.role.created", "identity.role.deleted",
@@ -473,7 +473,7 @@ class TestFunctional(base_test.BaseLMATest):
             2. Check that Cinder notifications are present in current
                Elasticsearch index
 
-        Duration15m
+        Duration 15m
         """
         cinder_event_types = ["volume.update.start", "volume.update.end"]
         cinder = self.os_clients.volume
