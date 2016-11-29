@@ -57,6 +57,30 @@ class InfluxdbApi(object):
                 "p": self.password,
                 "q": query})
 
+    def check_status(self, service_type, hostname, value,
+                     time_interval="now() - 10s"):
+        filters = [
+            "time >= {}".format(time_interval),
+            "value = {}".format(value)
+        ]
+        if hostname is not None:
+            filters.append("hostname = '{}'".format(hostname))
+
+        query = "select last(value) from {alarm_type} where {filters}".format(
+            alarm_type=service_type,
+            filters=" and ".join(filters))
+
+        def check_result():
+            return len(self.do_influxdb_query(
+                query=query).json()['results'][0])
+
+        msg = ("Alarm of type: {}: hostname: {}, "
+               "value: {} wasn't triggered".format(service_type,
+                                                   hostname,
+                                                   value))
+
+        utils.wait(check_result, timeout=60 * 5, interval=10, timeout_msg=msg)
+
     def check_alarms(self, alarm_type, filter_value, source, hostname,
                      value, time_interval="now() - 5m"):
         filter_by = "node_role"

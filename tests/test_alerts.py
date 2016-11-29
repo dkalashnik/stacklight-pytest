@@ -1,8 +1,10 @@
+from __future__ import print_function
 import contextlib
 import logging
 import time
 
 from tests import base_test
+import custom_exceptions
 
 
 logger = logging.getLogger(__name__)
@@ -159,8 +161,6 @@ class TestAlerts(base_test.BaseLMATest):
             exit_code, _, _ = controller.os.transport.exec_sync(
                 cmd.format(db_name=db_name, method="lower"))
 
-    import pytest
-    #@pytest.mark.foo
     def test_nova_api_logs_errors_alarms(self):
         """Check that nova-logs-error and nova-api-http-errors alarms work as
         expected.
@@ -358,7 +358,6 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_users_list("admin"), 100, metrics, self.WARNING_STATUS)
 
-    @pytest.mark.foo
     def test_swift_api_logs_errors_alarms(self):
         """Check that swift-logs-error and swift-api-http-error alarms
         work as expected.
@@ -429,8 +428,52 @@ class TestAlerts(base_test.BaseLMATest):
         self.influxdb_api.check_alarms(
             "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
+    def test_services_alarms(self):
+        """Check sanity services alarms
+        1) Connect to the node where the service from the list below is started:
+          libvirt
+          rabbitmq-server
+          memcached
+          apache2
+          mysql
+        ans stop the service
+        2) Check that the corresponding <service-name>-check alarm is triggered
+        3) Start the service resource and check that value is operating
+        """
+        service_mapper = {
+            'libvirtd': 'libvirt_check',
+            'rabbitmq-server': 'rabbitmq_check',
+            'memcached': 'memcached_check',
+            'apache2': 'apache_check',
+            'mysql': 'mysql_check'
+        }
+        status_operating = 1
+        status_down = 0
 
-    # def check_rabbitmq_pacemaker_alarms(self):
+        def find_server(some_service):
+            if service == 'apache2':
+                return self.cluster.get_random_controller()
+            server = None
+            for cluster_host in self.cluster.hosts:
+                res = cluster_host.os.transport.exec_sync(
+                    'pgrep {service}'.format(service=some_service))
+                if res[0] == 0:
+                    server = cluster_host
+                    break
+            if server is None:
+                raise custom_exceptions.NoValidHost('')
+            return server
+
+        for service in service_mapper.keys():
+            host = find_server(service)
+            host.os.transport.exec_sync('service {} stop'.format(service))
+            self.influxdb_api.check_status(
+                service_mapper[service], host.hostname, status_down)
+            host.os.transport.exec_sync('service {} start'.format(service))
+            self.influxdb_api.check_status(
+                service_mapper[service], host.hostname, status_operating)
+
+            # def check_rabbitmq_pacemaker_alarms(self):
     #     """Check that rabbitmq-pacemaker-* alarms work as expected.
     #
     #     Scenario:
