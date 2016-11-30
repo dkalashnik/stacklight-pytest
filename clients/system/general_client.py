@@ -2,6 +2,7 @@ import logging
 import socket
 
 from clients.system import ssh
+import custom_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -16,22 +17,27 @@ class GeneralActionsClient(object):
     @property
     def short_hostname(self):
         command = 'hostname --short'
-        return self.transport.exec_command(command)
+        return self.exec_command(command)
 
     @property
     def long_hostname(self):
         command = 'hostname --long'
-        return self.transport.exec_command(command)
+        return self.exec_command(command)
 
     def get_file_content(self, filename):
         command = 'cat %s' % filename
-        return self.transport.exec_command(command)
+        return self.exec_command(command)
 
     def get_date(self):
-        return self.transport.exec_command("date")
+        return self.exec_command("date")
 
     def exec_command(self, cmd):
         return self.transport.exec_command(cmd)
+
+    def check_call(self, command, error_info=None, expected=None,
+                   raise_on_err=True):
+        return self.transport.check_call(
+            command, error_info, expected, raise_on_err)
 
     def put_file(self, source_path, destination_path):
         return self.transport.put_file(source_path, destination_path)
@@ -71,9 +77,7 @@ class GeneralActionsClient(object):
         self.exec_command("killall -9 {0}".format(process_name))
 
     def check_process(self, name):
-        # TODO(rpromyshlennikov): can't work, because exec_command
-        # returns only output
-        ret_code, _, _ = self.transport.exec_command(
+        ret_code, _, _ = self.transport.exec_sync(
             "ps ax | grep {0} | grep -v grep".format(name))
         if ret_code == 0:
             logger.info("Found {0} process on nodes {1}"
@@ -203,7 +207,7 @@ class GeneralActionsClient(object):
             :param operation: type of operation, usually start, stop or restart.
             :type operation: str
         """
-        exit_code, _, = self.transport.exec_sync(
+        exit_code, _, _ = self.transport.exec_sync(
             "ls /etc/init/{}.conf".format(name))
 
         if exit_code == 0:
@@ -219,8 +223,7 @@ class GeneralActionsClient(object):
         """Clean local mail
 
         """
-        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
-        self.exec_command("rm -f $MAIL")
+        self.check_call("rm -f $MAIL")
 
     def fill_up_filesystem(self, fs, percent, file_name):
         """Fill filesystem on node.
@@ -256,3 +259,23 @@ class GeneralActionsClient(object):
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("echo '{line}' {op} {filename}".format(
             line=line, op=op, filename=filename))
+
+    def check_local_mail(self, service, state):
+        """Check that email from LMA Infrastructure Alerting plugin
+        about service changing it's state is presented on a host.
+
+        :param service: service to look for.
+        :type service: str
+        :param state: status of service to check.
+        :type state: str
+        """
+        try:
+            _, stdout, _ = self.check_call("cat $MAIL")
+            if not stdout:
+                return False
+            if ("Service: {}\n".format(service) in stdout and
+                    "State: {}\n".format(state) in stdout):
+                return True
+        except custom_exceptions.SSHCommandFailed:
+            return False
+

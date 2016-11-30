@@ -134,6 +134,30 @@ class InfluxdbApi(object):
             return result["series"][0]["values"]
         return []
 
+    def _check_influx_query_last_value(self, query, expected_value):
+        def check_status():
+            output = self.do_influxdb_query(query)
+            result = output.json()['results'][0]
+            if not result:
+                return False
+            return result['series'][0]['values'][0][1] == expected_value
+        utils.wait(lambda: check_status(), timeout=5*60)
+
+    def check_cluster_status(self, name, expected_status, interval='3m'):
+        query = ("SELECT last(value) FROM cluster_status WHERE "
+                 "time > now() - {0} AND cluster_name='{1}'".format(interval,
+                                                                    name))
+        self._check_influx_query_last_value(query, expected_status)
+
+    def check_count_of_haproxy_backends(self, service, node_state='down',
+                                        expected_count=0, interval='3m'):
+
+        query = ("SELECT last(value) FROM haproxy_backend_servers WHERE "
+                 "backend='{0}' AND state='{1}' and "
+                 "time > now() - {2}".format(service, node_state, interval))
+
+        self._check_influx_query_last_value(query, expected_count)
+
 
 class GrafanaApi(object):
     def __init__(self, address, port, username, password, tls=False):

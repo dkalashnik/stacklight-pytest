@@ -4,6 +4,8 @@ import select
 
 import paramiko
 
+import custom_exceptions
+
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,43 @@ class SSHTransport(object):
     def exec_command(self, cmd):
         exit_status, stdout, stderr = self.exec_sync(cmd)
         return stdout
+
+    def check_call(self, command, error_info=None, expected=None,
+                   raise_on_err=True):
+        """Execute command and check for return code
+
+        :type command: str
+        :type error_info: str
+        :type expected: list
+        :type raise_on_err: bool
+        :rtype: ExecResult
+        :raises: DevopsCalledProcessError
+        """
+        if expected is None:
+            expected = [0]
+        ret = self.exec_sync(command)
+        exit_code, stdout_str, stderr_str = ret
+        if exit_code not in expected:
+            message = (
+                "{append}Command '{cmd}' returned exit code {code} while "
+                "expected {expected}\n"
+                "\tSTDOUT:\n"
+                "{stdout}"
+                "\n\tSTDERR:\n"
+                "{stderr}".format(
+                    append=error_info + '\n' if error_info else '',
+                    cmd=command,
+                    code=exit_code,
+                    expected=expected,
+                    stdout=stdout_str,
+                    stderr=stderr_str
+                ))
+            logger.error(message)
+            if raise_on_err:
+                raise custom_exceptions.SSHCommandFailed(
+                    message, command=command,
+                    host=self.address, stderr=stderr_str)
+        return ret
 
     def put_file(self, source_path, destination_path):
         sftp = self._get_sftp_connection()
