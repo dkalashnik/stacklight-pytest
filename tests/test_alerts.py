@@ -473,55 +473,56 @@ class TestAlerts(base_test.BaseLMATest):
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_operating)
 
-            # def check_rabbitmq_pacemaker_alarms(self):
-    #     """Check that rabbitmq-pacemaker-* alarms work as expected.
-    #
-    #     Scenario:
-    #         1. Stop one slave RabbitMQ instance.
-    #         2. Check that the status of the RabbitMQ cluster is warning.
-    #         3. Stop the second slave RabbitMQ instance.
-    #         4. Check that the status of the RabbitMQ cluster is critical.
-    #         5. Stop the master RabbitMQ instance.
-    #         6. Check that the status of the RabbitMQ cluster is down.
-    #         7. Clear the RabbitMQ resource.
-    #         8. Check that the status of the RabbitMQ cluster is okay.
-    #
-    #     Duration 10m
-    #     """
-    #     def ban_and_check_status(node, status, wait=None):
-    #         with self.fuel_web.get_ssh_for_node(node.name) as remote:
-    #             logger.info("Ban rabbitmq resource on {}".format(node.name))
-    #             self.remote_ops.ban_resource(remote,
-    #                                          'master_p_rabbitmq-server',
-    #                                          wait=wait)
-    #         self.check_alarms('service', 'rabbitmq-cluster', 'pacemaker',
-    #                           None, status)
-    #
-    #     self.env.revert_snapshot("deploy_ha_toolchain")
-    #
-    #     self.check_alarms('service', 'rabbitmq-cluster', 'pacemaker',
-    #                       None, OKAY_STATUS)
-    #
-    #     controllers = self.fuel_web.get_nailgun_cluster_nodes_by_roles(
-    #         self.helpers.cluster_id, ["controller"])
-    #
-    #     controller = controllers[0]
-    #     controller_node = self.fuel_web.get_devops_node_by_nailgun_node(
-    #         controller)
-    #     rabbitmq_master = self.fuel_web.get_rabbit_master_node(
-    #         controller_node.name)
-    #     rabbitmq_slaves = self.fuel_web.get_rabbit_slaves_node(
-    #         controller_node.name)
-    #     ban_and_check_status(rabbitmq_slaves[0], WARNING_STATUS, 120)
-    #     ban_and_check_status(rabbitmq_slaves[1], CRITICAL_STATUS, 120)
-    #     # Don't wait for the pcs operation to complete as it will fail since
-    #     # the resource isn't running anywhere
-    #     ban_and_check_status(rabbitmq_master, DOWN_STATUS)
-    #
-    #     logger.info("Clear rabbitmq resource")
-    #     with self.fuel_web.get_ssh_for_node(rabbitmq_master.name) as remote:
-    #         self.remote_ops.clear_resource(remote,
-    #                                        'master_p_rabbitmq-server',
-    #                                        wait=240)
-    #     self.check_alarms('service', 'rabbitmq-cluster', 'pacemaker',
-    #                       None, OKAY_STATUS)
+    def test_rabbitmq_pacemaker_alarms(self):
+        """Check that rabbitmq-pacemaker-* alarms work as expected.
+
+        Scenario:
+            1. Stop one slave RabbitMQ instance.
+            2. Check that the status of the RabbitMQ cluster is warning.
+            3. Stop the second slave RabbitMQ instance.
+            4. Check that the status of the RabbitMQ cluster is critical.
+            5. Stop the master RabbitMQ instance.
+            6. Check that the status of the RabbitMQ cluster is down.
+            7. Clear the RabbitMQ resource.
+            8. Check that the status of the RabbitMQ cluster is okay.
+
+        Duration 10m
+        """
+        controllers = self.cluster.get_controllers()
+        self.influxdb_api.check_alarms(
+            'service',
+            'rabbitmq-cluster',
+            None,
+            None,
+            self.OKAY_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.WARNING_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.CRITICAL_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[2].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.DOWN_STATUS)  # TODO: fails here
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server start')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server start')
+        controllers[2].os.transport.exec_sync('service rabbitmq-server start')
+        self.influxdb_api.check_alarms(
+            'service',
+            'rabbitmq-cluster',
+            None,
+            None,
+            self.OKAY_STATUS)

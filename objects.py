@@ -62,6 +62,9 @@ class Cluster(object):
             raise ValueError
         self.hosts.append(host)
 
+    def get_controllers(self):
+        return self.filter_by_role("controller")
+
     def get_random_controller(self):
         return random.choice(self.filter_by_role("controller"))
 

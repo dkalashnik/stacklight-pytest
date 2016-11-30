@@ -88,10 +88,11 @@ class InfluxdbApi(object):
             filter_by = "service"
         filters = [
             "time >= {}".format(time_interval),
-            "source = '{}'".format(source),
             "{} = '{}'".format(filter_by, filter_value),
             "value = {}".format(value)
         ]
+        if source is not None:
+            filters.append("source = '{}'".format(source))
         if hostname is not None:
             filters.append("hostname = '{}'".format(hostname))
 
