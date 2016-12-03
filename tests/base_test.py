@@ -54,6 +54,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             port=lma["grafana_port"],
             username=lma["grafana_username"],
             password=lma["grafana_password"],
+            influxdb=cls.influxdb_api,
         )
 
         cls.es_kibana_api = es_kibana_api.EsKibanaApi(

@@ -44,3 +44,22 @@ def rand_name(base="", prefix="stacklight-pytest-", postfix=""):
         base=base,
         rand=random.randrange(100, 999),
         postfix=postfix,)
+
+
+def topo_sort(graph_unsorted):
+    result_graph = []
+    graph_unsorted = graph_unsorted.copy()
+    while graph_unsorted:
+        acyclic = False
+        for node, edges in graph_unsorted.items():
+            for edge in edges:
+                if edge in graph_unsorted:
+                    break
+            else:
+                acyclic = True
+                del graph_unsorted[node]
+                result_graph.append((node, edges))
+
+        if not acyclic:
+            raise exceptions.NotFound("A cyclic dependency occurred")
+    return result_graph
