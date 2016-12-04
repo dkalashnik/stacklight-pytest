@@ -2,7 +2,8 @@ import subprocess
 
 import yaml
 
-# import utils
+import settings
+import utils
 
 
 class MKConfig(object):
@@ -68,9 +69,12 @@ class MKConfig(object):
         ctl_params = controller_node['parameters']['keystone']
 
         openstack_auth_config = {
-            "os_username": ctl_params['server']['admin_name'],
-            "os_tenant": ctl_params['server']['admin_tenant'],
-            "os_password": ctl_params['server']['admin_password'],
+            "access": {
+                "user": ctl_params['server']['admin_name'],
+                "password": ctl_params['server']['admin_password'],
+                "tenant": ctl_params['server']['admin_tenant'],
+            },
+
             "management_vip": ctl_params['server']['bind']['private_address'],
             "public_vip": ctl_params['server']['bind']['public_address'],
         }
@@ -84,12 +88,9 @@ class MKConfig(object):
             "auth": self.generate_openstack(),
         }
 
-        import pprint
-        pprint.pprint(config)
+        config_filename = utils.get_fixture("config.yaml",
+                                            check_existence=False)
+        with file(config_filename, "w") as f:
+            yaml.safe_dump(config, f, default_flow_style=False)
 
-        # config_filename = utils.get_fixture("config.yaml",
-        #                                     check_existence=False)
-        # with file(config_filename, "w") as f:
-        #     yaml.safe_dump(config, f, default_flow_style=False)
-
-MKConfig().main()
+MKConfig(cluster_name=settings.ENV_CLUSTER_NAME).main()
