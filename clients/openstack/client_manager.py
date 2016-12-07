@@ -259,12 +259,18 @@ class OSCliActionsMixin(object):
         return self.os_clients.compute.flavors.list(sort_key="memory_mb")[0]
 
     def get_internal_network(self):
-        return self.os_clients.network.list_networks(
-            **{'router:external': False, 'status': 'ACTIVE'})['networks'][0]
+        networks = self.os_clients.network.list_networks()['networks']
+        return filter(lambda net: net["admin_state_up"] and
+                                  not net["router:external"] and
+                                  len(net["subnets"]) != 0,
+                      networks)[0]
 
     def get_external_network(self):
-        return self.os_clients.network.list_networks(
-            **{'router:external': True, 'status': 'ACTIVE'})['networks'][0]
+        networks = self.os_clients.network.list_networks()['networks']
+        return filter(lambda net: net["admin_state_up"] and
+                                  net["router:external"] and
+                                  len(net["subnets"]) != 0,
+                      networks)[0]
 
     def create_flavor(self, name, ram=256, vcpus=1, disk=2):
         return self.os_clients.compute.flavors.create(name, ram, vcpus, disk)

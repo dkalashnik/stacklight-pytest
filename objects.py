@@ -68,6 +68,9 @@ class Cluster(object):
     def get_random_controller(self):
         return random.choice(self.filter_by_role("controller"))
 
+    def get_random_compute(self):
+        return random.choice(self.filter_by_role("compute"))
+
 
 class Host(object):
     def __init__(self, address, roles=None, *args, **kwargs):

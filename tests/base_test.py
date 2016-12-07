@@ -64,13 +64,17 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
         # NOTE(rpromyshlennikov): It may need refactor,
         # if we use deploy without SSL
         auth = cls.config.get("auth")
-        cert_content = auth["public_ssl"]["cert_data"]["content"]
-        cert = utils.write_cert(cert_content) if cert_content else False
         public_vip = auth["public_vip"]
         auth_url = "http://{}:5000/".format(public_vip)
-        if cert:
+
+        cert = False
+
+        if auth.get("public_ssl", None) is not None:
+            cert_content = auth["public_ssl"]["cert_data"]["content"]
+            cert = utils.write_cert(cert_content) if cert_content else False
             hostname = auth["public_ssl"]["hostname"]
             auth_url = "https://{}:5000/".format(hostname)
+
         cls.os_clients = os_clients.OfficialClientManager(
             username=auth["access"]["user"],
             password=auth["access"]["password"],

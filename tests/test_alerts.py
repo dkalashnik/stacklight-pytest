@@ -11,25 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class TestAlerts(base_test.BaseLMATest):
-    def test_check_mysql_fs_alarms(self):
-        """Check that mysql-fs-warning and mysql-fs-critical alarms work as
-        expected.
-
-        Scenario:
-            1. Fill up /var/lib/mysql filesystem to 91 percent.
-            2. Check the last value of the warning alarm in InfluxDB.
-            3. Clean the filesystem.
-            4. Fill up /var/lib/mysql filesystem to 96 percent.
-            5. Check the last value of the critical alarm in InfluxDB.
-            6. Clean the filesystem.
-
-        Duration 10m
-        """
-        controller = self.cluster.get_random_controller()
-        self.check_filesystem_alarms(
-            controller, "/dev/mapper/mysql-root", "mysql-fs",
-            "/var/lib/mysql/bigfile", "mysql-nodes")
-
     def test_check_rabbitmq_disk_alarm(self):
         """Check that rabbitmq-disk-limit-warning and
         rabbitmq-disk-limit-critical alarms work as expected.
@@ -92,45 +73,9 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controller = self.cluster.get_random_controller()
+        compute = self.cluster.get_random_compute()
         self.check_filesystem_alarms(
-            controller, "/$", "root-fs", "/bigfile", "controller")
-
-    def test_check_log_fs_alarms(self):
-        """Check that log-fs-warning and log-fs-critical alarms work as
-        expected.
-
-        Scenario:
-            1. Fill up /var/log filesystem to 91 percent.
-            2. Check the last value of the warning alarm in InfluxDB.
-            3. Clean the filesystem.
-            4. Fill up /var/log filesystem to 96 percent.
-            5. Check the last value of the critical alarm in InfluxDB.
-            6. Clean the filesystem.
-
-        Duration 10m
-        """
-        controller = self.cluster.get_random_controller()
-        self.check_filesystem_alarms(
-            controller, "/var/log", "log-fs", "/var/log/bigfile", "controller")
-
-    def test_check_nova_fs_alarms(self):
-        """Check that nova-fs-warning and nova-fs-critical alarms work as
-        expected.
-
-        Scenario:
-            1. Fill up /var/lib/nova filesystem to 91 percent.
-            2. Check the last value of the warning alarm in InfluxDB.
-            3. Clean the filesystem.
-            4. Fill up /var/lib/nova filesystem to 96 percent.
-            5. Check the last value of the critical alarm in InfluxDB.
-            6. Clean the filesystem.
-
-        Duration 10m
-        """
-        compute = self.cluster.filter_by_role("compute").first()
-        self.check_filesystem_alarms(compute, "/var/lib/nova", "nova-fs",
-                                     "/var/lib/nova/bigfile", "compute")
+            compute, "/$", "root-fs", "/bigfile", "compute")
 
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):
@@ -339,7 +284,9 @@ class TestAlerts(base_test.BaseLMATest):
             }
 
             def get_users_list_parametrized():
-                cmd = ". openrc {additional_cmd} && keystone user-list > /dev/null 2>&1".format(additional_cmd=additional_cmds[level])
+                cmd = (". openrc {additional_cmd} && keystone user-list > "
+                       "/dev/null 2>&1"
+                       .format(additional_cmd=additional_cmds[level]))
                 try:
                     controller.os.transport.exec_sync(cmd)
                 except Exception:
@@ -374,6 +321,7 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 15m
         """
         controller = self.cluster.get_random_controller()
+
         def get_objects_list():
             try:
                 cmd = (". openrc "
