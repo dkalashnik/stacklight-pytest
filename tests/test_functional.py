@@ -709,3 +709,33 @@ class TestFunctional(base_test.BaseLMATest):
                 any(t_node.os.check_local_mail(nagios_service_name, "OK")
                     for t_node in toolchain_nodes)),
             timeout=5 * 60, interval=15)
+
+    def test_grafana_dashboard_panel_queries_toolchain(self):
+        """Verify that the panels on dashboards show up in the Grafana UI.
+
+        Scenario:
+            1. Check queries for all panels on all dashboards in Grafana.
+
+        Duration 20m
+        """
+        self.grafana_api.check_grafana_online()
+        dashboards = self.grafana_api.get_all_dashboards()
+        ok_queries = {}
+        failed_queries = {}
+        no_table_queries = {}
+        for dashboard in dashboards:
+            if dashboard.name.startswith("ceph"):
+                # NOTE(rpromyshlennikov): ceph is disabled in most cases
+                continue
+            result = dashboard.classify_all_dashboard_queries()
+            ok_queries[dashboard.name] = result[0]
+            no_table_queries[dashboard.name] = result[1]
+            failed_queries[dashboard.name] = result[2]
+
+        broken_panels = [
+            items
+            for result in no_table_queries.values()
+            if result
+            for items in result.items()]
+        assert not len(broken_panels), (
+            [broken_panel[0] for broken_panel in broken_panels])
