@@ -40,6 +40,9 @@ Run tests
 You need to generate config from fuel to run tests now:
    PYTHONPATH=".:$PYTHONPATH" python config/fuel_config.py
 
+In case of using MK2x it worth generating config from mk env to run tests:
+   PYTHONPATH=".:$PYTHONPATH" python config/mk_config.py
+
 After file 'fixtures/config.yaml' is generated it is worth adding
 OpenStack clients endpoing hostname to /etc/hosts:
    sudo python host_utils.py
