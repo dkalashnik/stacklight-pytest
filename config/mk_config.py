@@ -58,6 +58,10 @@ class MKConfig(object):
             "influxdb_db_name": mon_params['influxdb_database'],
             "elasticsearch_vip": mon_params['kibana_elasticsearch_host'],
             "elasticsearch_port": mon_params['elasticsearch_port'],
+            "grafana_vip": mon_params['grafana_influxdb_host'],
+            "grafana_port": mon_params['grafana_port'],
+            "grafana_username": mon_params['grafana_user'],
+            "grafana_password": mon_params['grafana_password'],
         }
         return lma_config
 

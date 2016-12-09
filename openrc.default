@@ -8,5 +8,8 @@ export ENV_FUEL_IP=10.109.0.2
 export ENV_FUEL_LOGIN=root
 export ENV_FUEL_PASSWORD=r00tme
 
+# MK2x parameters
+export ENV_CLUSTER_NAME=mk22-lab-basic
+
 # Plugins info
 export INFLUXDB_GRAFANA_PLUGIN_VERSION=1.0
