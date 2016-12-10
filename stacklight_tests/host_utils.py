@@ -4,7 +4,8 @@ import yaml
 
 from stacklight_tests import utils
 
-if __name__ == '__main__':
+
+def main():
     config = yaml.load(open(utils.get_fixture("config.yaml")))
     auth = config.get("auth")
     cert_content = auth["public_ssl"]["cert_data"]["content"]
@@ -14,3 +15,6 @@ if __name__ == '__main__':
     hostname = auth["public_ssl"]["hostname"]
     script = utils.get_fixture("update_hosts.sh")
     subprocess.check_call(["sudo", script, ip, hostname])
+
+if __name__ == '__main__':
+    main()

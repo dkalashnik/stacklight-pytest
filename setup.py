@@ -13,7 +13,7 @@ def get_requirements_list(requirements):
     all_requirements = all_requirements.splitlines()
     # Hack needed to packaging and tox,
     # because stable/mitaka version is not on PyPi server
-    all_requirements.append("python-fuelclient==9.0.2")  # Apache-2.0
+    all_requirements.append("python-fuelclient>=9.0.0,<10.0.0")  # Apache-2.0
     return all_requirements
 
 setup(
@@ -27,7 +27,7 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'stl_tests = stacklight_tests.shell:main'
+            'stl-tests = stacklight_tests.shell:main'
         ]
     },
     package_data={

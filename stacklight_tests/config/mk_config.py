@@ -98,4 +98,9 @@ class MKConfig(object):
         with file(config_filename, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False)
 
-MKConfig(cluster_name=settings.ENV_CLUSTER_NAME).main()
+
+def main():
+    MKConfig(cluster_name=settings.ENV_CLUSTER_NAME).main()
+
+if __name__ == '__main__':
+    main()

@@ -41,20 +41,37 @@ Build dist with next command:
 
 Run install on target machine:
    pip install dist/stacklight_tests-0.0.1.dev58.tar.gz --process-dependency-links
+or:
+   tox -e build
 
 where "--process-dependency-links" flag is necessary.
 
 Run tests
 =========
 You need to generate config from fuel to run tests now:
-   PYTHONPATH=".:$PYTHONPATH" python config/fuel_config.py
+   PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/config/fuel_config.py
+
+or run:
+   stl-tests gen-config-fuel
+
+if you have stacklight installed.
 
 In case of using MK2x it worth generating config from mk env to run tests:
-   PYTHONPATH=".:$PYTHONPATH" python config/mk_config.py
+   PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/config/mk_config.py
+
+or run:
+   stl-tests gen-config-mk
+
+if you have stacklight installed.
 
 After file 'fixtures/config.yaml' is generated it is worth adding
 OpenStack clients endpoing hostname to /etc/hosts:
-   sudo python host_utils.py
+   sudo PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/host_utils.py
+
+or run:
+   stl-tests setup-hosts
+
+if you have stacklight installed.
 
 After adding endpoint hostname to hosts file you can run tests.
 

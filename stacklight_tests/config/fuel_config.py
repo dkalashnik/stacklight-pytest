@@ -137,7 +137,10 @@ class FuelConfig(object):
             yaml.safe_dump(config, f, default_flow_style=False)
 
 
-if __name__ == '__main__':
+def main():
     FuelConfig(settings.ENV_FUEL_IP,
                settings.ENV_FUEL_LOGIN,
                settings.ENV_FUEL_PASSWORD).main()
+
+if __name__ == '__main__':
+    main()
