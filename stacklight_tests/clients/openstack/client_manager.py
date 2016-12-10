@@ -9,6 +9,8 @@ from keystoneclient import client as keystone_client
 from neutronclient.v2_0 import client as neutron_client
 from novaclient import client as novaclient
 
+from stacklight_tests import file_cache
+from stacklight_tests import settings
 from stacklight_tests import utils
 
 
@@ -252,6 +254,16 @@ class OSCliActionsMixin(object):
         return self.os_clients.auth.tenants.find(name="admin")
 
     def get_cirros_image(self):
+        images_list = list(self.os_clients.image.images.list(name='TestVM'))
+        if images_list:
+            image = images_list[0]
+        else:
+            image = self.os_clients.image.images.create(
+                name="TestVM",
+                disk_format='qcow2',
+                container_format='bare')
+            with file_cache.get_file(settings.CIRROS_QCOW2_URL) as f:
+                self.os_clients.image.images.upload(image.id, f)
         return list(self.os_clients.image.images.list(name='TestVM'))[0]
 
     def get_micro_flavor(self):

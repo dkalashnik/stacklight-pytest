@@ -38,11 +38,13 @@ Tests requires 'deploy_toolchain' in https://github.com/openstack/stacklight-int
 Build and install as python package
 ===================================
 Build dist with next command:
+   python setup.py sdist
 
-Run install on target machine:
-   pip install dist/stacklight_tests-0.0.1.dev58.tar.gz --process-dependency-links
 or:
    tox -e build
+
+Run install on target machine:
+   pip install dist/stacklight_tests-1.0.tar.gz --process-dependency-links
 
 where "--process-dependency-links" flag is necessary.
 
