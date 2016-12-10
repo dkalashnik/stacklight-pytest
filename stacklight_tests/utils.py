@@ -3,7 +3,7 @@ import random
 import tempfile
 import time
 
-import custom_exceptions as exceptions
+from stacklight_tests import custom_exceptions as exceptions
 
 
 def get_fixture(name, parent_dirs=("",), check_existence=True):

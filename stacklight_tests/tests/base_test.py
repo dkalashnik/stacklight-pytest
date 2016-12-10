@@ -3,12 +3,11 @@ import logging
 
 import yaml
 
-from clients import es_kibana_api
-from clients import influxdb_grafana_api
-from clients.openstack import client_manager as os_clients
-import objects
-import utils
-
+from stacklight_tests.clients import es_kibana_api
+from stacklight_tests.clients import influxdb_grafana_api
+from stacklight_tests.clients.openstack import client_manager as os_clients
+from stacklight_tests import objects
+from stacklight_tests import utils
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
     @classmethod
     def setup_class(cls):
-        cls.config = yaml.load(file(utils.get_fixture("config.yaml")))
+        cls.config = yaml.load(open(utils.get_fixture("config.yaml")))
 
         nodes = cls.config.get("nodes")
         cls.cluster = objects.Cluster()
@@ -140,12 +139,16 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                               hostname=controller.hostname)
         check_alarm(value=self.OKAY_STATUS)
 
-        default_value = controller.exec_command( # DISK_FREE_LIMIT? o_O
-            "rabbitmqctl -n rabbit@messaging-node-3 environment | grep disk_free_limit | "
-            "sed -r 's/}.+//' | sed 's|.*,||'")
+        # default_value = controller.exec_command(  # DISK_FREE_LIMIT? o_O
+        #     "rabbitmqctl -n rabbit@messaging-node-3 environment | "
+        #     "grep disk_free_limit | "
+        #     "sed -r 's/}.+//' | sed 's|.*,||'")
         mem_usage = self.influxdb_api.get_rabbitmq_memory_usage()
 
-        cmd = "rabbitmqctl -n rabbit@messaging-node-3 set_vm_memory_high_watermark absolute \"{memory}\"".format(memory=int(mem_usage * value))
+        cmd = (
+            "rabbitmqctl -n rabbit@messaging-node-3 "
+            "set_vm_memory_high_watermark absolute \"{memory}\"".format(
+                memory=int(mem_usage * value)))
         print(cmd)
         controller.exec_command(cmd)
         check_alarm(value=status)
@@ -178,4 +181,3 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                 source=source,
                 hostname=None,
                 value=status)
-

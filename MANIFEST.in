@@ -1,0 +1,11 @@
+recursive-include stacklight_tests/fixtures *
+
+include README.md
+include requirements.txt
+
+exclude .gitignore
+exclude .gitreview
+exclude *.bak
+
+global-exclude *.pyc
+global-exclude *.log

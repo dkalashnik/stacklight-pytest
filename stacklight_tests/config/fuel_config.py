@@ -1,13 +1,13 @@
 import json
 from random import choice
-import yaml
 
 import fuelclient
 from fuelclient import client as api_client
+import yaml
 
-from clients.system import general_client
-import settings
-import utils
+from stacklight_tests.clients.system import general_client
+from stacklight_tests import settings
+from stacklight_tests import utils
 
 
 class FuelConfig(object):
@@ -125,6 +125,7 @@ class FuelConfig(object):
 
     def main(self):
         config = {
+            "env": {"type": "fuel"},
             "nodes": self.nodes,
             "lma": self.get_lma_credentials(),
             "auth": self.get_openstack_credentials(),

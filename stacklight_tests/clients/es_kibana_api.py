@@ -2,7 +2,7 @@ import logging
 
 import elasticsearch
 
-import utils
+from stacklight_tests import utils
 
 logger = logging.getLogger(__name__)
 

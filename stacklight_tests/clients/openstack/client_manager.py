@@ -1,44 +1,43 @@
 import logging
 
-# Default client libs
 from cinderclient import client as cinder_client
 from glanceclient import client as glance_client
 from heatclient import client as heat_client
-from keystoneauth1 import session as keystone_session
 from keystoneauth1 import identity as keystone_identity
+from keystoneauth1 import session as keystone_session
 from keystoneclient import client as keystone_client
 from neutronclient.v2_0 import client as neutron_client
 from novaclient import client as novaclient
 
+from stacklight_tests import utils
+
 
 LOG = logging.getLogger(__name__)
-try:
-    import muranoclient.v1.client
-except ImportError:
-    #LOG.exception()
-    LOG.warning('Murano client could not be imported.')
-try:
-    import saharaclient.client
-except ImportError:
-    #LOG.exception()
-    LOG.warning('Sahara client could not be imported.')
-try:
-    import ceilometerclient.v2.client
-except ImportError:
-    # LOG.exception()
-    LOG.warning('Ceilometer client could not be imported.')
-try:
-    import ironicclient
-except ImportError:
-    # LOG.exception()
-    LOG.warning('Ironic client could not be imported')
-try:
-    import muranoclient.glance.client as art_client
-except ImportError:
-    # LOG.exception()
-    LOG.warning('Artifacts client could not be imported')
-
-import utils
+# try:
+#     import muranoclient.v1.client
+# except ImportError:
+#     #LOG.exception()
+#     LOG.warning('Murano client could not be imported.')
+# try:
+#     import saharaclient.client
+# except ImportError:
+#     #LOG.exception()
+#     LOG.warning('Sahara client could not be imported.')
+# try:
+#     import ceilometerclient.v2.client
+# except ImportError:
+#     # LOG.exception()
+#     LOG.warning('Ceilometer client could not be imported.')
+# try:
+#     import ironicclient
+# except ImportError:
+#     # LOG.exception()
+#     LOG.warning('Ironic client could not be imported')
+# try:
+#     import muranoclient.glance.client as art_client
+# except ImportError:
+#     # LOG.exception()
+#     LOG.warning('Artifacts client could not be imported')
 
 
 class OfficialClientManager(object):
@@ -260,17 +259,18 @@ class OSCliActionsMixin(object):
 
     def get_internal_network(self):
         networks = self.os_clients.network.list_networks()['networks']
-        return filter(lambda net: net["admin_state_up"] and
-                                  not net["router:external"] and
-                                  len(net["subnets"]) != 0,
-                      networks)[0]
+        return filter(
+            lambda net: net["admin_state_up"] and not
+            net["router:external"] and
+            len(net["subnets"]) != 0, networks)[0]
 
     def get_external_network(self):
         networks = self.os_clients.network.list_networks()['networks']
-        return filter(lambda net: net["admin_state_up"] and
-                                  net["router:external"] and
-                                  len(net["subnets"]) != 0,
-                      networks)[0]
+        return filter(
+            lambda net: net["admin_state_up"] and
+            net["router:external"] and
+            len(net["subnets"]) != 0,
+            networks)[0]
 
     def create_flavor(self, name, ram=256, vcpus=1, disk=2):
         return self.os_clients.compute.flavors.create(name, ram, vcpus, disk)
@@ -303,7 +303,7 @@ class OSCliActionsMixin(object):
         return secgroup
 
     def create_basic_server(self, image=None, flavor=None, net=None,
-                            sec_groups=(), wait_timeout=3*60):
+                            sec_groups=(), wait_timeout=3 * 60):
         os_conn = self.os_clients
         image = image or self.get_cirros_image()
         flavor = flavor or self.get_micro_flavor()

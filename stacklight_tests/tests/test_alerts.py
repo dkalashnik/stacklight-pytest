@@ -1,11 +1,11 @@
 from __future__ import print_function
+
 import contextlib
 import logging
 import time
 
-from tests import base_test
-import custom_exceptions
-
+from stacklight_tests import custom_exceptions
+from stacklight_tests.tests import base_test
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class TestAlerts(base_test.BaseLMATest):
     def test_check_rabbitmq_disk_alarm(self):
         """Check that rabbitmq-disk-limit-warning and
-        rabbitmq-disk-limit-critical alarms work as expected.
+           rabbitmq-disk-limit-critical alarms work as expected.
 
         Scenario:
             1. Check the last value of the okay alarm in InfluxDB.
@@ -36,7 +36,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_check_rabbitmq_memory_alarm(self):
         """Check that rabbitmq-memory-limit-warning and
-        rabbitmq-memory-limit-critical alarms work as expected.
+           rabbitmq-memory-limit-critical alarms work as expected.
 
         Scenario:
             1. Check the last value of the okay alarm in InfluxDB.
@@ -61,7 +61,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
-        expected.
+           expected.
 
         Scenario:
             1. Fill up root filesystem to 91 percent.
@@ -80,7 +80,7 @@ class TestAlerts(base_test.BaseLMATest):
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):
         """Context manager that renames all tables in provided database
-        to make it unavailable and renames it back on exit.
+           to make it unavailable and renames it back on exit.
 
         :param db_name: logical database name
         :type db_name: str
@@ -108,7 +108,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_nova_api_logs_errors_alarms(self):
         """Check that nova-logs-error and nova-api-http-errors alarms work as
-        expected.
+           expected.
 
         Scenario:
             1. Rename all nova tables to UPPERCASE.
@@ -138,7 +138,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_neutron_api_logs_errors_alarms(self):
         """Check that neutron-logs-error and neutron-api-http-errors
-        alarms work as expected.
+           alarms work as expected.
 
         Scenario:
             1. Rename all neutron tables to UPPERCASE.
@@ -168,7 +168,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_glance_api_logs_errors_alarms(self):
         """Check that glance-logs-error and glance-api-http-errors alarms
-        work as expected.
+           work as expected.
 
         Scenario:
             1. Rename all glance tables to UPPERCASE.
@@ -200,7 +200,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def check_heat_api_logs_errors_alarms(self):
         """Check that heat-logs-error and heat-api-http-errors alarms work as
-        expected.
+           expected.
 
         Scenario:
             1. Rename all heat tables to UPPERCASE.
@@ -228,7 +228,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_cinder_api_logs_errors_alarms(self):
         """Check that cinder-logs-error and cinder-api-http-errors alarms
-        work as expected.
+           work as expected.
 
         Scenario:
             1. Rename all cinder tables to UPPERCASE.
@@ -257,7 +257,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_keystone_api_logs_errors_alarms(self):
         """Check that keystone-logs-error, keystone-public-api-http-errors and
-        keystone-admin-api-http-errors alarms work as expected.
+           keystone-admin-api-http-errors alarms work as expected.
 
         Scenario:
             1. Rename all keystone tables to UPPERCASE.
@@ -296,8 +296,9 @@ class TestAlerts(base_test.BaseLMATest):
         controller = self.cluster.get_random_controller()
 
         with self.make_logical_db_unavailable("keystone", controller):
-            metrics = {#"keystone-logs": "error",
-                       "keystone-public-api": "http_errors"}
+            metrics = {
+                # "keystone-logs": "error",
+                "keystone-public-api": "http_errors"}
             self.verify_service_alarms(
                 get_users_list("user"), 100, metrics, self.WARNING_STATUS)
 
@@ -307,7 +308,7 @@ class TestAlerts(base_test.BaseLMATest):
 
     def test_swift_api_logs_errors_alarms(self):
         """Check that swift-logs-error and swift-api-http-error alarms
-        work as expected.
+           work as expected.
 
         Scenario:
             1. Stop swift-account service on controller.
@@ -325,9 +326,9 @@ class TestAlerts(base_test.BaseLMATest):
         def get_objects_list():
             try:
                 cmd = (". openrc "
-                        "&& export OS_AUTH_URL="
-                        "`(echo $OS_AUTH_URL | sed 's%:5000/%:5000/v2.0%')` "
-                        "&& swift list > /dev/null 2>&1")
+                       "&& export OS_AUTH_URL="
+                       "`(echo $OS_AUTH_URL | sed 's%:5000/%:5000/v2.0%')` "
+                       "&& swift list > /dev/null 2>&1")
                 controller.os.transport.exec_sync(cmd)
             except Exception:
                 pass
@@ -377,16 +378,20 @@ class TestAlerts(base_test.BaseLMATest):
             "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
     def test_services_alarms(self):
-        """Check sanity services alarms
-        1) Connect to the node where the service from the list below is started:
-          libvirt
-          rabbitmq-server
-          memcached
-          apache2
-          mysql
-        ans stop the service
-        2) Check that the corresponding <service-name>-check alarm is triggered
-        3) Start the service resource and check that value is operating
+        """Check sanity services alarms.
+
+        Scenario:
+            1. Connect to the node where the service from the list
+               below is started:
+                 * libvirt
+                 * rabbitmq-server
+                 * memcached
+                 * apache2
+                 * mysql
+               and stop the service.
+            2. Check that the corresponding <service-name>-check alarm
+               is triggered.
+            3. Start the service resource and check that value is operating.
         """
         service_mapper = {
             'libvirtd': 'libvirt_check',

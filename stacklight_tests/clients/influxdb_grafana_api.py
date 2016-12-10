@@ -4,7 +4,7 @@ import urlparse
 import requests
 from requests.packages.urllib3 import poolmanager
 
-import utils
+from stacklight_tests import utils
 
 
 class TestHTTPAdapter(requests.adapters.HTTPAdapter):
@@ -142,7 +142,7 @@ class InfluxdbApi(object):
             if not result:
                 return False
             return result['series'][0]['values'][0][1] == expected_value
-        utils.wait(lambda: check_status(), timeout=5*60)
+        utils.wait(lambda: check_status(), timeout=5 * 60)
 
     def check_cluster_status(self, name, expected_status, interval='3m'):
         query = ("SELECT last(value) FROM cluster_status WHERE "
@@ -267,7 +267,7 @@ class Dashboard(object):
                     continue
                 query_table = self._parse_measurement_from_query(query)
                 if query_table and (
-                            query_table not in self.available_measurements):
+                        query_table not in self.available_measurements):
                     no_measurements_queries[key] = raw_query, query, {}
                     continue
                 raw_result = self._influxdb_api.do_influxdb_query(query).json()

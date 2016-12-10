@@ -1,12 +1,13 @@
+from __future__ import print_function
+
 import logging
 import time
 
 import pytest
 
-import settings
-from tests import base_test
-import utils
-
+from stacklight_tests import settings
+from stacklight_tests.tests import base_test
+from stacklight_tests import utils
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def wait_for_resource_status(resource_client, resource,
 
 class TestOpenStackClients(base_test.BaseLMATest):
     def test_check_os_conn(self):
-        # from clients.openstack import client_manager
+        # from stacklight_tests.clients.openstack import client_manager
         # manager = client_manager.OfficialClientManager
         # nonpos_args = dict(
         #     domain='Default',
@@ -41,28 +42,28 @@ class TestOpenStackClients(base_test.BaseLMATest):
         # session = manager._get_auth_session(**nonpos_args)
         # nonpos_args.update(endpoint_type='adminURL')
         # auth = manager.get_auth_client(**nonpos_args)
-        # print auth.users.list()
+        # print(auth.users.list())
         # compute = manager.get_compute_client(**nonpos_args)
-        # print compute.servers.list()
+        # print(compute.servers.list())
         # network = manager.get_network_client(**nonpos_args)
-        # print network.list_networks()
+        # print(network.list_networks())
         # volumes = manager.get_volume_client(**nonpos_args)
-        # print volumes.volumes.list()
+        # print(volumes.volumes.list())
         # orchestr = manager.get_orchestration_client(**nonpos_args)
-        # print list(orchestr.stacks.list())
+        # print(list(orchestr.stacks.list()))
         # nonpos_args.pop("endpoint_type")
         # images = manager.get_image_client(**nonpos_args)
-        # print list(images.images.list())
+        # print(list(images.images.list()))
 
-        ################## Auto client test ####################
+        # Auto client test
 
         # session = manager._get_auth_session(**nonpos_args)
-        print self.os_clients.auth.users.list()
-        print self.os_clients.compute.servers.list()
-        print self.os_clients.network.list_networks()
-        print self.os_clients.volume.volumes.list()
-        print list(self.os_clients.orchestration.stacks.list())
-        print list(self.os_clients.image.images.list())
+        print(self.os_clients.auth.users.list())
+        print(self.os_clients.compute.servers.list())
+        print(self.os_clients.network.list_networks())
+        print(self.os_clients.volume.volumes.list())
+        print(list(self.os_clients.orchestration.stacks.list()))
+        print(list(self.os_clients.image.images.list()))
 
 
 class TestFunctional(base_test.BaseLMATest):
@@ -397,8 +398,8 @@ class TestFunctional(base_test.BaseLMATest):
         resources = self.os_clients.orchestration.resources.list(stack.id)
         resource_servers = [res for res in resources
                             if res.resource_type == "OS::Nova::Server"]
-        assert (not resource_servers
-                or resource_servers[0].physical_resource_id == "")
+        assert (not resource_servers or
+                resource_servers[0].physical_resource_id == "")
 
         self.os_clients.compute.flavors.delete(extra_large_flavor.id)
 
@@ -558,7 +559,7 @@ class TestFunctional(base_test.BaseLMATest):
                 lambda: (
                     any(t_node.os.check_local_mail(service_names[2], new_state)
                         for t_node in toolchain_nodes)),
-                timeout=5*60, interval=15)
+                timeout=5 * 60, interval=15)
 
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}

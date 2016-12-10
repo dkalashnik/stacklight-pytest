@@ -35,6 +35,15 @@ Tests requires 'deploy_toolchain' in https://github.com/openstack/stacklight-int
     ./utils/jenkins/system_tests.sh -t test -w $(pwd) -j fuelweb_test -i $ISO_PATH -kK -o --group=deploy_toolchain
 
 
+Build and install as python package
+===================================
+Build dist with next command:
+
+Run install on target machine:
+   pip install dist/stacklight_tests-0.0.1.dev58.tar.gz --process-dependency-links
+
+where "--process-dependency-links" flag is necessary.
+
 Run tests
 =========
 You need to generate config from fuel to run tests now:
