@@ -35,17 +35,45 @@ Tests requires 'deploy_toolchain' in https://github.com/openstack/stacklight-int
     ./utils/jenkins/system_tests.sh -t test -w $(pwd) -j fuelweb_test -i $ISO_PATH -kK -o --group=deploy_toolchain
 
 
+Build and install as python package
+===================================
+Build dist with next command:
+   python setup.py sdist
+
+or:
+   tox -e build
+
+Run install on target machine:
+   pip install dist/stacklight_tests-1.0.tar.gz --process-dependency-links
+
+where "--process-dependency-links" flag is necessary.
+
 Run tests
 =========
 You need to generate config from fuel to run tests now:
-   PYTHONPATH=".:$PYTHONPATH" python config/fuel_config.py
+   PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/config/fuel_config.py
+
+or run:
+   stl-tests gen-config-fuel
+
+if you have stacklight installed.
 
 In case of using MK2x it worth generating config from mk env to run tests:
-   PYTHONPATH=".:$PYTHONPATH" python config/mk_config.py
+   PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/config/mk_config.py
+
+or run:
+   stl-tests gen-config-mk
+
+if you have stacklight installed.
 
 After file 'fixtures/config.yaml' is generated it is worth adding
 OpenStack clients endpoing hostname to /etc/hosts:
-   sudo python host_utils.py
+   sudo PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/host_utils.py
+
+or run:
+   stl-tests setup-hosts
+
+if you have stacklight installed.
 
 After adding endpoint hostname to hosts file you can run tests.
 

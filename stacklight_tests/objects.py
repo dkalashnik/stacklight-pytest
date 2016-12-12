@@ -1,7 +1,7 @@
 import random
 
-import custom_exceptions as exceptions
-from clients.system import general_client
+import stacklight_tests.custom_exceptions as exceptions
+from stacklight_tests.clients.system import general_client
 
 
 class Cluster(object):

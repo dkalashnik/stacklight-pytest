@@ -2,8 +2,8 @@ import subprocess
 
 import yaml
 
-import settings
-import utils
+from stacklight_tests import settings
+from stacklight_tests import utils
 
 
 class MKConfig(object):
@@ -87,6 +87,7 @@ class MKConfig(object):
 
     def main(self):
         config = {
+            "env": {"type": "mk"},
             "nodes": self.generate_nodes(),
             "lma": self.generate_lma(),
             "auth": self.generate_openstack(),
@@ -97,4 +98,9 @@ class MKConfig(object):
         with file(config_filename, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False)
 
-MKConfig(cluster_name=settings.ENV_CLUSTER_NAME).main()
+
+def main():
+    MKConfig(cluster_name=settings.ENV_CLUSTER_NAME).main()
+
+if __name__ == '__main__':
+    main()

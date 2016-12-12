@@ -1,8 +1,8 @@
 import logging
 import socket
 
-from clients.system import ssh
-import custom_exceptions
+from stacklight_tests.clients.system import ssh
+from stacklight_tests import custom_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,8 @@ class GeneralActionsClient(object):
 
             :param resource: resource name.
             :type resource: str
-            :param wait: number of seconds to wait for the operation to complete.
+            :param wait: number of seconds to wait for the
+                         operation to complete.
             :type wait: int
         """
         cmd = "pcs resource ban {}".format(resource)
@@ -178,7 +179,8 @@ class GeneralActionsClient(object):
 
             :param resource: resource name.
             :type resource: str
-            :param wait: number of seconds to wait for the operation to complete.
+            :param wait: number of seconds to wait for the
+                         operation to complete.
             :type wait: int
         """
         cmd = "pcs resource clear {}".format(resource)
@@ -192,7 +194,7 @@ class GeneralActionsClient(object):
 
             :param name: service name.
             :type name: str
-            :param operation: type of operation, usually start, stop or restart.
+            :param operation: type of operation, usually start, stop or restart
             :type operation: str
         """
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
@@ -204,7 +206,7 @@ class GeneralActionsClient(object):
 
             :param name: service name.
             :type name: str
-            :param operation: type of operation, usually start, stop or restart.
+            :param operation: type of operation, usually start, stop or restart
             :type operation: str
         """
         exit_code, _, _ = self.transport.exec_sync(
@@ -236,7 +238,8 @@ class GeneralActionsClient(object):
             :type file_name: str
 
         """
-        logger.info("Filling up {} filesystem to {} percent".format(fs, percent))
+        logger.info("Filling up {} filesystem to {} percent".format(
+            fs, percent))
         cmd = (
             "fallocate -l $(df | grep {} | awk '{{ printf(\"%.0f\\n\", "
             "1024 * ((($3 + $4) * {} / 100) - $3))}}') {}".format(
@@ -278,4 +281,3 @@ class GeneralActionsClient(object):
                 return True
         except custom_exceptions.SSHCommandFailed:
             return False
-

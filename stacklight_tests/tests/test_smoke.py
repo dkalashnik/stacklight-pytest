@@ -1,4 +1,4 @@
-from tests import base_test
+from stacklight_tests.tests import base_test
 
 
 class TestSmoke(base_test.BaseLMATest):

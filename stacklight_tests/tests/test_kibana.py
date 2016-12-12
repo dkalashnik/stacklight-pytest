@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from tests import base_test
+from stacklight_tests.tests import base_test
 
 
 class TestKibana(base_test.BaseLMATest):
@@ -118,7 +118,7 @@ class TestKibana(base_test.BaseLMATest):
         """
         for program_name in {
             'nova-scheduler',
-            'libvirt', # TODO(akostrikov) check on mk presence
+            'libvirt',  # TODO(akostrikov) check on mk presence
             'nova-api',
             'nova-compute',
             'nova-conductor',

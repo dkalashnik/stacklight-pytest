@@ -4,8 +4,7 @@ import select
 
 import paramiko
 
-import custom_exceptions
-
+from stacklight_tests import custom_exceptions
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +78,8 @@ class SSHTransport(object):
         exit_status = channel.recv_exit_status()
         logger.debug("Command {0} executed with status: {1}"
                      .format(cmd, exit_status))
-        return exit_status, ''.join(out_data).strip(), ''.join(err_data).strip()
+        return (
+            exit_status, ''.join(out_data).strip(), ''.join(err_data).strip())
 
     def exec_command(self, cmd):
         exit_status, stdout, stderr = self.exec_sync(cmd)
