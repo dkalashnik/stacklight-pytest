@@ -10,9 +10,10 @@ def read(fname):
 
 def get_requirements_list(requirements):
     all_requirements = read(requirements)
-    all_requirements = all_requirements.splitlines()
     # Hack needed to packaging and tox,
     # because stable/mitaka version is not on PyPi server
+    all_requirements = [req for req in all_requirements.splitlines()
+                        if "fuelclient" not in req]
     all_requirements.append("python-fuelclient>=9.0.0,<10.0.0")  # Apache-2.0
     return all_requirements
 

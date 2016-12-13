@@ -48,6 +48,20 @@ Run install on target machine:
 
 where "--process-dependency-links" flag is necessary.
 
+
+Installing dependencies and system packages
+===========================================
+To install system packages run:
+   apt install -y build-essential libssl-dev libffi-dev python-dev libyaml-dev python-dev python-pip
+
+Create and activate virtualenv:
+   pip install virtualenv
+   virtualenv ../venv-stacklight-test
+   source ../venv-stacklight-test/bin/activate
+
+Install dependencies, if you aren't using this project as package:
+   pip install -r requirements.txt
+
 Run tests
 =========
 You need to generate config from fuel to run tests now:
