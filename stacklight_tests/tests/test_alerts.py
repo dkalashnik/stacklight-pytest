@@ -89,13 +89,13 @@ class TestAlerts(base_test.BaseLMATest):
         :returns: None, works as context manager
         """
         cmd = (
-            "mysql -AN -e "
+            "mysql -AN  -u debian-sys-maint -pworkshop  -e "
             "\"select concat("
             "'rename table {db_name}.', table_name, ' "
             "to {db_name}.' , {method}(table_name) , ';') "
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
-            "\" | mysql")
+            "\" | mysql  -u debian-sys-maint -pworkshop ")
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
             cmd.format(db_name=db_name, method="upper"))
@@ -123,7 +123,6 @@ class TestAlerts(base_test.BaseLMATest):
         client = self.os_clients.compute
 
         def get_servers_list():
-            print('get servers')
             try:
                 client.servers.list()
             except Exception:
@@ -131,10 +130,13 @@ class TestAlerts(base_test.BaseLMATest):
 
         controller = self.cluster.get_random_controller()
 
+        # nova_service
         with self.make_logical_db_unavailable("nova", controller):
-            metrics = {"nova-api": 'http_errors'}
-            self.verify_service_alarms(
-                get_servers_list, 1, metrics, self.WARNING_STATUS)
+            # query = "select * from openstack_nova_service where service='compute' order by time desc limit 10"
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'nova-control\' order by time desc limit 10;'
+            # metrics = {"nova-api": 'http_errors'}
+            # self.verify_service_alarms(
+            #     get_servers_list, 1, metrics, self.WARNING_STATUS)
 
     def test_neutron_api_logs_errors_alarms(self):
         """Check that neutron-logs-error and neutron-api-http-errors
@@ -397,7 +399,7 @@ class TestAlerts(base_test.BaseLMATest):
             'libvirtd': 'libvirt_check',
             'rabbitmq-server': 'rabbitmq_check',
             'memcached': 'memcached_check',
-            'apache2': 'apache_check',
+#            'apache2': 'apache_check',
             'mysql': 'mysql_check'
         }
         status_operating = 1
@@ -441,41 +443,76 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        # SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = 'rabbitmq';
+        from stacklight_tests import utils
         controllers = self.cluster.get_controllers()
-        self.influxdb_api.check_alarms(
-            'service',
-            'rabbitmq-cluster',
-            None,
-            None,
-            self.OKAY_STATUS)
+        influxdb_api = self.influxdb_api
+        ctl1 = controllers[0]
+        ctl2 = controllers[1]
+        ctl3 = controllers[2]
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.WARNING_STATUS)
+        ok_status = self.OKAY_STATUS
+        def check_ok_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=ok_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_ok_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.CRITICAL_STATUS)
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        warn_status = self.WARNING_STATUS
+        def check_warn_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=warn_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_warn_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[2].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.DOWN_STATUS)  # TODO: fails here
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server start')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server start')
-        controllers[2].os.transport.exec_sync('service rabbitmq-server start')
-        self.influxdb_api.check_alarms(
-            'service',
-            'rabbitmq-cluster',
-            None,
-            None,
-            self.OKAY_STATUS)
+        crit_status = self.CRITICAL_STATUS
+        def check_crit_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=crit_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_crit_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl3.os.transport.exec_sync('service rabbitmq-server stop')
+
+        down_status = self.DOWN_STATUS
+        def check_down_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=down_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_down_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+
+        import time
+        ctl1.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl1.os.transport.exec_sync('service rabbitmq-server start')
+
+        time.sleep(10)
+        ctl2.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl2.os.transport.exec_sync('service rabbitmq-server start')
+        time.sleep(10)
+        ctl3.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl3.os.transport.exec_sync('service rabbitmq-server start')
+
+        utils.wait(check_ok_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+

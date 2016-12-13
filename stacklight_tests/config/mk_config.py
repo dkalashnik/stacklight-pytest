@@ -7,7 +7,7 @@ from stacklight_tests import utils
 
 
 class MKConfig(object):
-    def __init__(self, cluster_name="mk22-stacklight-basic"):
+    def __init__(self, cluster_name="mk22_lab_basic"):
         inventory = subprocess.Popen("reclass --inventory",
                                      shell=True,
                                      stdout=subprocess.PIPE).stdout.read()
