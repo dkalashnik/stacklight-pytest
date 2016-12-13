@@ -196,6 +196,8 @@ class Dashboard(object):
         # NOTE(rpromyshlennikov): temporary fix for unknown hostname
         # (node-1 vs node-1.test.domain.local)
         query = query.replace(".test.domain.local", "")
+        # NOTE(rpromyshlennikov): fix for regex queries (e.g: for mount points)
+        query = query.replace("^/", "^\/")
         return query
 
     @staticmethod
