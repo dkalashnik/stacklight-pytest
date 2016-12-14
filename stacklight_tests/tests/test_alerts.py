@@ -401,8 +401,11 @@ class TestAlerts(base_test.BaseLMATest):
                 return self.cluster.get_random_controller()
             server = None
             for cluster_host in self.cluster.hosts:
-                res = cluster_host.os.transport.exec_sync(
-                    'pgrep {service}'.format(service=some_service))
+                try:
+                    res = cluster_host.os.transport.exec_sync(
+                        'pgrep {service}'.format(service=some_service))
+                except:
+                    continue
                 if res[0] == 0:
                     server = cluster_host
                     break
