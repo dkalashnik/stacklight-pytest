@@ -469,6 +469,9 @@ class TestFunctional(base_test.BaseLMATest):
             neutron_event_types, index_type="notification",
             query_filter="Logger:neutron", size=500)
 
+    # This test is suitable only for fuel env,
+    # because there is no working cinder on Mk2x now
+    @pytest.mark.check_env("is_fuel")
     def test_cinder_notifications_toolchain(self):
         """Check that Cinder notifications are present in Elasticsearch
 
@@ -625,6 +628,9 @@ class TestFunctional(base_test.BaseLMATest):
                     service_state_in_influx=self.OKAY_STATUS,
                     down_backends_in_haproxy=0,)
 
+    # This test is suitable only for fuel env,
+    # because there is no "/dev/mapper/mysql-root" mount point on mk2x
+    @pytest.mark.check_env("is_fuel")
     @pytest.mark.parametrize(
         "disk_usage_percent", [91, 96], ids=["warning", "critical"])
     def test_toolchain_alert_node(self, disk_usage_percent):
