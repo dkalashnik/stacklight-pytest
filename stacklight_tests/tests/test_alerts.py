@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class TestAlerts(base_test.BaseLMATest):
-    def test_check_rabbitmq_disk_alarm(self): # TODO
+    @pytest.mark.mk_in_progress
+    def test_check_rabbitmq_disk_alarm(self):
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
 
@@ -36,7 +37,8 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_disk_alarms(controller, self.CRITICAL_STATUS,
                                          self.RABBITMQ_DISK_CRITICAL_PERCENT)
 
-    def test_check_rabbitmq_memory_alarm(self): # TODO
+    @pytest.mark.mk_in_progress
+    def test_check_rabbitmq_memory_alarm(self):
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
 
@@ -61,7 +63,8 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
                                            self.RABBITMQ_MEMORY_CRITICAL_VALUE)
 
-    def test_check_root_fs_alarms(self): # TODO I am afraiiid
+    @pytest.mark.skip(reason="Destructive")
+    def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
            expected.
 
@@ -139,7 +142,8 @@ class TestAlerts(base_test.BaseLMATest):
                        interval=10,
                        timeout_msg='No message')
 
-    def test_neutron_api_logs_errors_alarms(self): # TODO
+    @pytest.mark.skip(reason="Not enough destructive metrics")
+    def test_neutron_api_logs_errors_alarms(self):
         """Check that neutron-logs-error and neutron-api-http-errors
            alarms work as expected.
 
@@ -154,6 +158,11 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        # TODO(akostrikov) Should we skip neutron or add to lma more metrics?
+        # Available neutron metrics:
+        # openstack_neutron_http_response_times
+        # openstack_neutron_networks
+        # openstack_neutron_subnets
         controller = self.cluster.get_random_controller()
         influxdb_api = self.influxdb_api
         warning = self.WARNING_STATUS
@@ -203,7 +212,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.mk
-    def check_heat_api_logs_errors_alarms(self):
+    def test_heat_api_logs_errors_alarms(self):
         """Check that heat-logs-error and heat-api-http-errors alarms work as
            expected.
 
@@ -233,7 +242,8 @@ class TestAlerts(base_test.BaseLMATest):
                        interval=10,
                        timeout_msg='No message')
 
-    def test_cinder_api_logs_errors_alarms(self): # TODO
+    @pytest.mark.skip(reason="Not enough destructive metrics")
+    def test_cinder_api_logs_errors_alarms(self):
         """Check that cinder-logs-error and cinder-api-http-errors alarms
            work as expected.
 
@@ -298,6 +308,7 @@ class TestAlerts(base_test.BaseLMATest):
                        interval=10,
                        timeout_msg='No message')
 
+    @pytest.mark.skip(reason="No swift in grafana")
     def test_swift_api_logs_errors_alarms(self): # There is no swift
         """Check that swift-logs-error and swift-api-http-error alarms
            work as expected.
@@ -333,7 +344,8 @@ class TestAlerts(base_test.BaseLMATest):
 
         controller.os.transport.exec_sync('initctl start swift-account')
 
-    def test_hdd_errors_alarms(self): # TODO i am afraid
+    @pytest.mark.skip(reason="Destructive")
+    def test_hdd_errors_alarms(self):
         """Check that hdd-errors-critical alarm works as expected.
 
         Scenario:
