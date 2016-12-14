@@ -1,8 +1,6 @@
 from functools import partial
 import logging
 
-import yaml
-
 from stacklight_tests.clients import es_kibana_api
 from stacklight_tests.clients import influxdb_grafana_api
 from stacklight_tests.clients.openstack import client_manager as os_clients
@@ -29,7 +27,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
     @classmethod
     def setup_class(cls):
-        cls.config = yaml.load(open(utils.get_fixture("config.yaml")))
+        cls.config = utils.load_config()
 
         nodes = cls.config.get("nodes")
         cls.cluster = objects.Cluster()

@@ -3,6 +3,8 @@ import random
 import tempfile
 import time
 
+import yaml
+
 from stacklight_tests import custom_exceptions as exceptions
 
 
@@ -63,3 +65,9 @@ def topo_sort(graph_unsorted):
         if not acyclic:
             raise exceptions.NotFound("A cyclic dependency occurred")
     return result_graph
+
+
+def load_config():
+    with open(get_fixture("config.yaml")) as config_file:
+        config = yaml.load(config_file)
+    return config

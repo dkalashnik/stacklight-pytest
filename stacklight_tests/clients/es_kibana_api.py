@@ -28,7 +28,7 @@ class EsKibanaApi(object):
                         "Timestamp": {"from": time_range}}}}}}},
                 "size": size})
 
-    def check_notifications(self, expected_notifications, timeout=300,
+    def check_notifications(self, expected_notifications, timeout=5 * 60,
                             interval=10, **kwargs):
         def _verify_notifications(expected_list):
             output = self.query_elasticsearch(**kwargs)
