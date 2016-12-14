@@ -418,6 +418,9 @@ class TestAlerts(base_test.BaseLMATest):
             host.os.transport.exec_sync('service {} stop'.format(service))
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_down)
+            if service == 'rabbitmq-server':
+                host.os.transport.exec_sync(
+                    'rabbitmqctl force_boot'.format(service))
             host.os.transport.exec_sync('service {} start'.format(service))
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_operating)
