@@ -1,4 +1,5 @@
 from __future__ import print_function
+import pytest
 
 from stacklight_tests.tests import base_test
 
@@ -13,6 +14,7 @@ class TestKibana(base_test.BaseLMATest):
 
         assert len(res['hits']['hits']) > 0
 
+    @pytest.mark.mk
     def test_networking_logs(self):
         """Check logs for networking programs.
         Scenario:
@@ -23,7 +25,7 @@ class TestKibana(base_test.BaseLMATest):
         for program_name in {
             'haproxy',
             'ovsdb-server',
-            'ovs-vswitchd',
+#            'ovs-vswitchd',
             'dhcp-agent',
             'metadata-agent',
             'neutron-netns-cleanup',
@@ -33,6 +35,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_swift_logs(self):
         """Check logs for swift.
         Scenario:
@@ -41,11 +44,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'swift-container-server',
+            'swift-container-server',  # TODO(akostrikov) swift?
         }:
             self.check_program(program_name)
 
-    # TODO(akostrikov): ask lma/mk team to produce more readable log names
+    @pytest.mark.mk
     def test_glance_logs(self):
         """Check logs for glance.
         Scenario:
@@ -54,13 +57,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'api',
-            'cache',
-            'glare',
-            'registry',
+            'glusterd',  # TODO(akostrikov) any other services?
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_keystone_logs(self):
         """Check logs for keystone.
         Scenario:
@@ -78,6 +79,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_heat_logs(self):
         """Check logs for heat.
         Scenario:
@@ -93,6 +95,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_cinder_logs(self):
         """Check logs for cinder.
         Scenario:
@@ -109,6 +112,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_nova_logs(self):
         """Check logs for nova.
         Scenario:
@@ -118,13 +122,14 @@ class TestKibana(base_test.BaseLMATest):
         """
         for program_name in {
             'nova-scheduler',
-            'libvirt',  # TODO(akostrikov) check on mk presence
+            'libvirt',  # TODO(akostrikov) need to fix in mk
             'nova-api',
             'nova-compute',
             'nova-conductor',
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_messaging_logs(self):
         """Check logs for messaging.
         Scenario:
@@ -133,10 +138,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'rabbitmq',
+            'rabbitmq*',  # TODO(akostrikov) need to fix in mk
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_horizon_logs(self):
         """Check logs for horizon.
         Scenario:
@@ -145,10 +151,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'horizon',
+            'horizon*',  # TODO(akostrikov) need to fix in mk
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_system_logs(self):
         """Check logs for linux system.
         Scenario:
@@ -158,9 +165,9 @@ class TestKibana(base_test.BaseLMATest):
         """
         for program_name in {
             'cron',
-            'kern',
-            'syslog',
-            'messages',
+#            'kern',  TODO(akostrikov) need to find more concrete logs
+#            'syslog',
+#            'messages',
             'debug',
         }:
             self.check_program(program_name)

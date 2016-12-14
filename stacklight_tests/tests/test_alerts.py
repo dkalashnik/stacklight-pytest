@@ -2,16 +2,18 @@ from __future__ import print_function
 
 import contextlib
 import logging
+import pytest
 import time
 
 from stacklight_tests import custom_exceptions
+from stacklight_tests import utils
 from stacklight_tests.tests import base_test
 
 logger = logging.getLogger(__name__)
 
 
 class TestAlerts(base_test.BaseLMATest):
-    def test_check_rabbitmq_disk_alarm(self):
+    def test_check_rabbitmq_disk_alarm(self): # TODO
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
 
@@ -34,7 +36,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_disk_alarms(controller, self.CRITICAL_STATUS,
                                          self.RABBITMQ_DISK_CRITICAL_PERCENT)
 
-    def test_check_rabbitmq_memory_alarm(self):
+    def test_check_rabbitmq_memory_alarm(self): # TODO
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
 
@@ -59,7 +61,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
                                            self.RABBITMQ_MEMORY_CRITICAL_VALUE)
 
-    def test_check_root_fs_alarms(self):
+    def test_check_root_fs_alarms(self): # TODO I am afraiiid
         """Check that root-fs-warning and root-fs-critical alarms work as
            expected.
 
@@ -106,6 +108,7 @@ class TestAlerts(base_test.BaseLMATest):
             exit_code, _, _ = controller.os.transport.exec_sync(
                 cmd.format(db_name=db_name, method="lower"))
 
+    @pytest.mark.mk
     def test_nova_api_logs_errors_alarms(self):
         """Check that nova-logs-error and nova-api-http-errors alarms work as
            expected.
@@ -120,25 +123,23 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        client = self.os_clients.compute
-
-        def get_servers_list():
-            try:
-                client.servers.list()
-            except Exception:
-                pass
-
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
+        def check_nova_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'nova-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
         # nova_service
-        with self.make_logical_db_unavailable("nova", controller):
-            # query = "select * from openstack_nova_service where service='compute' order by time desc limit 10"
-            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'nova-control\' order by time desc limit 10;'
-            # metrics = {"nova-api": 'http_errors'}
-            # self.verify_service_alarms(
-            #     get_servers_list, 1, metrics, self.WARNING_STATUS)
+        with self.make_logical_db_unavailable('nova', controller):
+            utils.wait(check_nova_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
-    def test_neutron_api_logs_errors_alarms(self):
+    def test_neutron_api_logs_errors_alarms(self): # TODO
         """Check that neutron-logs-error and neutron-api-http-errors
            alarms work as expected.
 
@@ -153,21 +154,23 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        net_client = self.os_clients.network
-
-        def get_agents_list():
-            try:
-                net_client.list_agents()
-            except Exception:
-                pass
-
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'neutron-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        # nova_service
         with self.make_logical_db_unavailable('neutron', controller):
-            metrics = {'neutron-api': 'http_errors'}
-            self.verify_service_alarms(
-                get_agents_list, 1, metrics, self.WARNING_STATUS)
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
+    @pytest.mark.mk
     def test_glance_api_logs_errors_alarms(self):
         """Check that glance-logs-error and glance-api-http-errors alarms
            work as expected.
@@ -183,23 +186,23 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        image_client = self.os_clients.image
-
-        def get_images_list():
-            try:
-                # NOTE(rpromyshlennikov): List is needed here
-                # because glance image list is lazy method
-                return [image for image in image_client.images.list()]
-            except Exception:
-                pass
-
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'glance\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
 
         with self.make_logical_db_unavailable('glance', controller):
-            metrics = {'glance-api': 'http_errors'}
-            self.verify_service_alarms(
-                get_images_list, 1, metrics, self.WARNING_STATUS)
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
+    @pytest.mark.mk
     def check_heat_api_logs_errors_alarms(self):
         """Check that heat-logs-error and heat-api-http-errors alarms work as
            expected.
@@ -215,20 +218,22 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
-        def get_stacks_list():
-            try:
-                cmd = ". openrc && heat stack-list > /dev/null 2>&1"
-                controller.os.transport.exec_sync(cmd)
-            except Exception:
-                pass
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'heat\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
 
         with self.make_logical_db_unavailable('heat', controller):
-            metrics = {'heat-api': 'http_errors'}
-            self.verify_service_alarms(
-                get_stacks_list, 100, metrics, self.WARNING_STATUS)
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
-    def test_cinder_api_logs_errors_alarms(self):
+    def test_cinder_api_logs_errors_alarms(self): # TODO
         """Check that cinder-logs-error and cinder-api-http-errors alarms
            work as expected.
 
@@ -244,19 +249,22 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
-        cinder_client = self.os_clients.volume
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
-        def get_volumes_list():
-            try:
-                return [image for image in cinder_client.images.list()]
-            except Exception:
-                pass
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'cinder-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
 
         with self.make_logical_db_unavailable('cinder', controller):
-            metrics = {'cinder-api': 'http_errors'}
-            self.verify_service_alarms(
-                get_volumes_list, 1, metrics, self.WARNING_STATUS)
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
+    @pytest.mark.mk
     def test_keystone_api_logs_errors_alarms(self):
         """Check that keystone-logs-error, keystone-public-api-http-errors and
            keystone-admin-api-http-errors alarms work as expected.
@@ -274,41 +282,23 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-
-        def get_users_list(level):
-            additional_cmds = {
-                "user": ("&& export OS_AUTH_URL="
-                         "`(echo $OS_AUTH_URL "
-                         "| sed 's%:5000/%:5000/v2.0%')` "),
-                "admin": ("&& export OS_AUTH_URL="
-                          "`(echo $OS_AUTH_URL "
-                          "| sed 's%:5000/%:35357/v2.0%')` ")
-            }
-
-            def get_users_list_parametrized():
-                cmd = (". openrc {additional_cmd} && keystone user-list > "
-                       "/dev/null 2>&1"
-                       .format(additional_cmd=additional_cmds[level]))
-                try:
-                    controller.os.transport.exec_sync(cmd)
-                except Exception:
-                    pass
-            return get_users_list_parametrized
-
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
-        with self.make_logical_db_unavailable("keystone", controller):
-            metrics = {
-                # "keystone-logs": "error",
-                "keystone-public-api": "http_errors"}
-            self.verify_service_alarms(
-                get_users_list("user"), 100, metrics, self.WARNING_STATUS)
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'keystone\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        # nova_service
+        with self.make_logical_db_unavailable('keystone', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
 
-            metrics = {"keystone-admin-api": "http_errors"}
-            self.verify_service_alarms(
-                get_users_list("admin"), 100, metrics, self.WARNING_STATUS)
-
-    def test_swift_api_logs_errors_alarms(self):
+    def test_swift_api_logs_errors_alarms(self): # There is no swift
         """Check that swift-logs-error and swift-api-http-error alarms
            work as expected.
 
@@ -343,7 +333,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         controller.os.transport.exec_sync('initctl start swift-account')
 
-    def test_hdd_errors_alarms(self):
+    def test_hdd_errors_alarms(self): # TODO i am afraid
         """Check that hdd-errors-critical alarm works as expected.
 
         Scenario:
@@ -379,6 +369,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.influxdb_api.check_alarms(
             "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
+    @pytest.mark.mk
     def test_services_alarms(self):
         """Check sanity services alarms.
 
@@ -428,6 +419,7 @@ class TestAlerts(base_test.BaseLMATest):
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_operating)
 
+    @pytest.mark.mk
     def test_rabbitmq_pacemaker_alarms(self):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
@@ -444,7 +436,6 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         # SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = 'rabbitmq';
-        from stacklight_tests import utils
         controllers = self.cluster.get_controllers()
         influxdb_api = self.influxdb_api
         ctl1 = controllers[0]
@@ -498,9 +489,6 @@ class TestAlerts(base_test.BaseLMATest):
                    timeout=60 * 5,
                    interval=10,
                    timeout_msg='No message')
-
-
-        import time
         ctl1.os.transport.exec_sync('rabbitmqctl force_boot')
         ctl1.os.transport.exec_sync('service rabbitmq-server start')
 
