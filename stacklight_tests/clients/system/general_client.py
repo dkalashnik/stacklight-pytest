@@ -217,9 +217,7 @@ class GeneralActionsClient(object):
         else:
             service_cmd = 'service {service} {operation}'
 
-        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
-        self.exec_command(service_cmd.format(service=name,
-                                             operation=operation))
+        self.check_call(service_cmd.format(service=name, operation=operation))
 
     def clear_local_mail(self):
         """Clean local mail

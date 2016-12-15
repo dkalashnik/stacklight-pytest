@@ -142,7 +142,10 @@ class InfluxdbApi(object):
             if not result:
                 return False
             return result['series'][0]['values'][0][1] == expected_value
-        utils.wait(lambda: check_status(), timeout=5 * 60)
+        msg = "There is no such value: {} in results of query: {}".format(
+            expected_value, query
+        )
+        utils.wait(lambda: check_status(), timeout=5 * 60, timeout_msg=msg)
 
     def check_cluster_status(self, name, expected_status, interval='3m'):
         query = ("SELECT last(value) FROM cluster_status WHERE "

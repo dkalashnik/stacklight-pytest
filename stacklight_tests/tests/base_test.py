@@ -28,6 +28,8 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
     @classmethod
     def setup_class(cls):
         cls.config = utils.load_config()
+        # TODO(rpromyshlennikov): make types as enum?
+        cls.env_type = cls.config.get("env", {}).get("type", "")
 
         nodes = cls.config.get("nodes")
         cls.cluster = objects.Cluster()
