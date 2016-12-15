@@ -1,4 +1,9 @@
+import logging
 import os
+
+
+# Logging settings
+CONSOLE_LOG_LEVEL = os.environ.get('LOG_LEVEL', logging.DEBUG)
 
 # FUEL connection options
 ENV_FUEL_IP = os.environ.get("ENV_FUEL_IP", "10.109.0.2")
