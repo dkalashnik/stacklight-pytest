@@ -142,7 +142,10 @@ class InfluxdbApi(object):
             if not result:
                 return False
             return result['series'][0]['values'][0][1] == expected_value
-        utils.wait(lambda: check_status(), timeout=5 * 60)
+        msg = "There is no such value: {} in results of query: {}".format(
+            expected_value, query
+        )
+        utils.wait(lambda: check_status(), timeout=5 * 60, timeout_msg=msg)
 
     def check_cluster_status(self, name, expected_status, interval='3m'):
         query = ("SELECT last(value) FROM cluster_status WHERE "
@@ -196,6 +199,8 @@ class Dashboard(object):
         # NOTE(rpromyshlennikov): temporary fix for unknown hostname
         # (node-1 vs node-1.test.domain.local)
         query = query.replace(".test.domain.local", "")
+        # NOTE(rpromyshlennikov): fix for regex queries (e.g: for mount points)
+        query = query.replace("^/", "^\/")
         return query
 
     @staticmethod

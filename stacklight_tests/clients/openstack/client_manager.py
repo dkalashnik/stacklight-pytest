@@ -264,25 +264,34 @@ class OSCliActionsMixin(object):
                 container_format='bare')
             with file_cache.get_file(settings.CIRROS_QCOW2_URL) as f:
                 self.os_clients.image.images.upload(image.id, f)
-        return list(self.os_clients.image.images.list(name='TestVM'))[0]
+        return image
 
     def get_micro_flavor(self):
         return self.os_clients.compute.flavors.list(sort_key="memory_mb")[0]
 
     def get_internal_network(self):
-        networks = self.os_clients.network.list_networks()['networks']
-        return filter(
-            lambda net: net["admin_state_up"] and not
-            net["router:external"] and
-            len(net["subnets"]) != 0, networks)[0]
+        networks = [
+            net for net in self.os_clients.network.list_networks()["networks"]
+            if net["admin_state_up"] and not net["router:external"] and
+            len(net["subnets"])
+        ]
+        if networks:
+            net = networks[0]
+        else:
+            net = self.create_network_resources()
+        return net
 
     def get_external_network(self):
-        networks = self.os_clients.network.list_networks()['networks']
-        return filter(
-            lambda net: net["admin_state_up"] and
-            net["router:external"] and
-            len(net["subnets"]) != 0,
-            networks)[0]
+        networks = [
+            net for net in self.os_clients.network.list_networks()["networks"]
+            if net["admin_state_up"] and net["router:external"] and
+            len(net["subnets"])
+        ]
+        if networks:
+            ext_net = networks[0]
+        else:
+            ext_net = self.create_fake_external_network()
+        return ext_net
 
     def create_flavor(self, name, ram=256, vcpus=1, disk=2):
         return self.os_clients.compute.flavors.create(name, ram, vcpus, disk)
@@ -348,9 +357,34 @@ class OSCliActionsMixin(object):
         # yield net
         # self.os_clients.network.delete_network(net['id'])
 
+    def create_fake_external_network(self):
+        net_name = utils.rand_name("ext-net-")
+        net_body = {"network": {"name": net_name,
+                                "router:external": True,
+                                "provider:network_type": "local"}}
+
+        ext_net = self.os_clients.network.create_network(net_body)['network']
+        subnet_name = utils.rand_name("ext-subnet-")
+        subnet_body = {
+            "subnet": {
+                "name": subnet_name,
+                "network_id": ext_net["id"],
+                "ip_version": 4,
+                "cidr": "10.255.255.0/24",
+                "allocation_pools": [{"start": "10.255.255.100",
+                                      "end": "10.255.255.200"}]
+            }
+        }
+        self.os_clients.network.create_subnet(subnet_body)
+        return ext_net
+        # yield net
+        # self.os_clients.network.delete_network(ext_net['id'])
+
     def create_subnet(self, net, tenant_id):
+        subnet_name = utils.rand_name("subnet-")
         subnet_body = {
             'subnet': {
+                "name": subnet_name,
                 'network_id': net['id'],
                 'ip_version': 4,
                 'cidr': '10.1.7.0/24',
@@ -387,10 +421,10 @@ class OSCliActionsMixin(object):
         self.os_clients.network.add_interface_router(
             router['id'], {'subnet_id': subnet['id']})
 
-        private_net_id = net['id']
-        floating_ip_pool = ext_net['id']
+        # private_net_id = net['id']
+        # floating_ip_pool = ext_net['id']
 
-        return private_net_id, floating_ip_pool
+        return net
         # yield private_net_id, floating_ip_pool
         #
         # self.os_clients.network.remove_interface_router(

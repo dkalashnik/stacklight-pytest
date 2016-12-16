@@ -4,8 +4,9 @@ TODO
 * Create setup.py with all needed stuff to be possible to install with pip install git+...
 * Add precommit hook to repo with pep8 check  (  Medium  )
 * Add pre-test configurations for cluster, two ways:    (  High  )
-  * Add creating of networks, images, etc.. in corresponding test setup
+  * Add creating of networks, images, etc.. in corresponding test setup (Resource manager class?)
   * Add global setup
+* Implements Destructive actions context manager to prevent fail of other test on destructive actions ( High )
 * Tag tests with "Fuel" or/and "TCPMK" labels to separate scopes for different systems   (  High  )
 * Add to README cmdlines to run tests against both systems   (  Medium  )
 * Split grafana dashboard test to per-dashboard tests  (  Medium  )

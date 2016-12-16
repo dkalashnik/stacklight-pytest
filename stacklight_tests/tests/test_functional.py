@@ -65,6 +65,96 @@ class TestOpenStackClients(base_test.BaseLMATest):
         print(list(self.os_clients.orchestration.stacks.list()))
         print(list(self.os_clients.image.images.list()))
 
+    def test_delete_all_resources(self, resources_ids=None):
+        default_resources_ids = {
+            "floating_ips": [],
+            "nets": [],
+            "ports": [],
+            "routers": [],
+            "sec_groups": [],
+            "servers": [],
+            "stacks": [],
+            "subnets": [],
+        }
+
+        resources_ids = resources_ids or default_resources_ids
+
+        for stack_id in resources_ids["stacks"]:
+            stack = self.os_clients.orchestration.stacks.get(stack_id)
+            self.os_clients.orchestration.stacks.delete(stack.id)
+
+        for floating_ip_id in resources_ids["floating_ips"]:
+            floating_ip = self.os_clients.compute.floating_ips.get(
+                floating_ip_id)
+            self.os_clients.compute.floating_ips.delete(floating_ip)
+
+        for server_id in resources_ids["servers"]:
+            server = self.os_clients.compute.servers.get(server_id)
+            self.os_clients.compute.servers.delete(server)
+
+        routers = []
+        for net_res_id in resources_ids["routers"]:
+            try:
+                router = self.os_clients.network.show_router(net_res_id)
+                if router:
+                    routers.append(router["router"])
+                    self.os_clients.network.remove_gateway_router(
+                        router["router"]["id"])
+            except Exception as e:
+                print(e)
+
+        subnets = []
+        for net_res_id in resources_ids["subnets"]:
+            try:
+                subnet = self.os_clients.network.show_subnet(net_res_id)
+                if subnet:
+                    subnets.append(subnet["subnet"])
+            except Exception as e:
+                print(e)
+
+        for router in routers:
+            for subnet in subnets:
+                try:
+                    self.os_clients.network.remove_interface_router(
+                        router["id"], {"subnet_id": subnet['id']})
+                except Exception as e:
+                    print(e)
+            self.os_clients.network.delete_router(router['id'])
+
+        for port_id in resources_ids["ports"]:
+            try:
+                port = self.os_clients.network.show_port(port_id)["port"]
+                self.os_clients.network.delete_port(port['id'])
+            except Exception as e:
+                print(e)
+
+        for port in self.os_clients.network.list_ports()["ports"]:
+            try:
+                self.os_clients.network.delete_port(port['id'])
+            except Exception as e:
+                print(e)
+
+        for subnet in subnets:
+            try:
+                self.os_clients.network.delete_subnet(subnet['id'])
+            except Exception as e:
+                print(e)
+
+        for net_res_id in resources_ids["nets"]:
+            try:
+                self.os_clients.network.delete_network(net_res_id)
+            except Exception as e:
+                print(e)
+
+        for sec_group_id in resources_ids["sec_groups"]:
+            try:
+                sec_group = self.os_clients.compute.security_groups.get(
+                    sec_group_id)
+                if sec_group:
+                    self.os_clients.compute.security_groups.delete(sec_group)
+            except Exception as e:
+                print(e)
+
 
 class TestFunctional(base_test.BaseLMATest):
 
@@ -134,25 +224,29 @@ class TestFunctional(base_test.BaseLMATest):
             "compute.instance.create.start", "compute.instance.create.end",
             "compute.instance.delete.start", "compute.instance.delete.end",
             "compute.instance.rebuild.start", "compute.instance.rebuild.end",
-            "compute.instance.rebuild.scheduled",
-            "compute.instance.resize.prep.start",
-            "compute.instance.resize.prep.end",
-            "compute.instance.resize.confirm.start",
-            "compute.instance.resize.confirm.end",
-            "compute.instance.resize.revert.start",
-            "compute.instance.resize.revert.end",
-            "compute.instance.exists", "compute.instance.update",
+            # NOTE(rpromyshlennikov):
+            # Disabled in favor of compatibility with Mk2x
+            # "compute.instance.rebuild.scheduled",
+            # "compute.instance.resize.prep.start",
+            # "compute.instance.resize.prep.end",
+            # "compute.instance.resize.confirm.start",
+            # "compute.instance.resize.confirm.end",
+            # "compute.instance.resize.revert.start",
+            # "compute.instance.resize.revert.end",
+            "compute.instance.exists",
+            # "compute.instance.update",
             "compute.instance.shutdown.start", "compute.instance.shutdown.end",
             "compute.instance.power_off.start",
             "compute.instance.power_off.end",
             "compute.instance.power_on.start", "compute.instance.power_on.end",
             "compute.instance.snapshot.start", "compute.instance.snapshot.end",
-            "compute.instance.resize.start", "compute.instance.resize.end",
-            "compute.instance.finish_resize.start",
-            "compute.instance.finish_resize.end",
+            # "compute.instance.resize.start", "compute.instance.resize.end",
+            # "compute.instance.finish_resize.start",
+            # "compute.instance.finish_resize.end",
             "compute.instance.suspend.start", "compute.instance.suspend.end",
-            "scheduler.select_destinations.start",
-            "scheduler.select_destinations.end"]
+            # "scheduler.select_destinations.start",
+            # "scheduler.select_destinations.end"
+        ]
         instance_event_types = nova_event_types[:-2]
         instance = self.create_basic_server()
         logger.info("Update the instance")
@@ -165,23 +259,25 @@ class TestFunctional(base_test.BaseLMATest):
             instance, image, name="rebuilded_instance")
         wait_for_resource_status(
             self.os_clients.compute.servers, instance, "ACTIVE")
-        logger.info("Resize the instance")
-        flavors = self.os_clients.compute.flavors.list(sort_key="memory_mb")
-        self.os_clients.compute.servers.resize(instance, flavors[1])
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
-        logger.info("Confirm the resize")
-        self.os_clients.compute.servers.confirm_resize(instance)
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "ACTIVE")
-        logger.info("Resize the instance")
-        self.os_clients.compute.servers.resize(instance, flavors[2])
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
-        logger.info("Revert the resize")
-        self.os_clients.compute.servers.revert_resize(instance)
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "ACTIVE")
+        # NOTE(rpromyshlennikov):
+        # Disabled in favor of compatibility with Mk2x
+        # logger.info("Resize the instance")
+        # flavors = self.os_clients.compute.flavors.list(sort_key="memory_mb")
+        # self.os_clients.compute.servers.resize(instance, flavors[1])
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
+        # logger.info("Confirm the resize")
+        # self.os_clients.compute.servers.confirm_resize(instance)
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "ACTIVE")
+        # logger.info("Resize the instance")
+        # self.os_clients.compute.servers.resize(instance, flavors[2])
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
+        # logger.info("Revert the resize")
+        # self.os_clients.compute.servers.revert_resize(instance)
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "ACTIVE")
         logger.info("Stop the instance")
         self.os_clients.compute.servers.stop(instance)
         wait_for_resource_status(
@@ -306,18 +402,18 @@ class TestFunctional(base_test.BaseLMATest):
         Duration 25m
         """
         heat_event_types = [
-            "orchestration.stack.check.start",
-            "orchestration.stack.check.end",
+            # "orchestration.stack.check.start",
+            # "orchestration.stack.check.end",
             "orchestration.stack.create.start",
             "orchestration.stack.create.end",
             "orchestration.stack.delete.start",
             "orchestration.stack.delete.end",
-            "orchestration.stack.resume.start",
-            "orchestration.stack.resume.end",
-            "orchestration.stack.rollback.start",
-            "orchestration.stack.rollback.end",
-            "orchestration.stack.suspend.start",
-            "orchestration.stack.suspend.end"
+            # "orchestration.stack.resume.start",
+            # "orchestration.stack.resume.end",
+            # "orchestration.stack.rollback.start",
+            # "orchestration.stack.rollback.end",
+            # "orchestration.stack.suspend.start",
+            # "orchestration.stack.suspend.end"
         ]
 
         name = utils.rand_name("heat-flavor-")
@@ -330,51 +426,51 @@ class TestFunctional(base_test.BaseLMATest):
 
         parameters = {
             'InstanceType': flavor.name,
-            'ImageId': self.get_cirros_image()["name"],
+            'ImageId': self.get_cirros_image().id,
             'network': self.get_internal_network()["id"],
         }
 
         stack = self.create_stack(template, parameters=parameters)
 
-        self.os_clients.orchestration.actions.suspend(stack.id)
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "SUSPEND_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # self.os_clients.orchestration.actions.suspend(stack.id)
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "SUSPEND_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         resources = self.os_clients.orchestration.resources.list(stack.id)
         resource_server = [res for res in resources
                            if res.resource_type == "OS::Nova::Server"][0]
-        instance = self.os_clients.compute.servers.get(
-            resource_server.physical_resource_id)
+        # instance = self.os_clients.compute.servers.get(
+        #     resource_server.physical_resource_id)
 
-        assert instance.status == "SUSPENDED"
-
-        self.os_clients.orchestration.actions.resume(stack.id)
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "RESUME_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # assert instance.status == "SUSPENDED"
+        #
+        # self.os_clients.orchestration.actions.resume(stack.id)
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "RESUME_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         instance = self.os_clients.compute.servers.get(
             resource_server.physical_resource_id)
         assert instance.status == "ACTIVE"
 
-        self.os_clients.orchestration.actions.check(stack.id)
-
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "CHECK_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # self.os_clients.orchestration.actions.check(stack.id)
+        #
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "CHECK_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         self.os_clients.orchestration.stacks.delete(stack.id)
         self.os_clients.compute.flavors.delete(flavor.id)
@@ -425,16 +521,16 @@ class TestFunctional(base_test.BaseLMATest):
             "security_group.delete.start", "security_group.delete.end",
             "security_group.create.start", "security_group.create.end",
             "router.update.start", "router.update.end",
-            "router.interface.delete", "router.interface.create",
+            # "router.interface.delete", "router.interface.create",
             "router.delete.start", "router.delete.end",
             "router.create.start", "router.create.end",
-            "port.delete.start", "port.delete.end",
-            "port.create.start", "port.create.end",
+            # "port.delete.start", "port.delete.end",
+            # "port.create.start", "port.create.end",
             "network.delete.start", "network.delete.end",
             "network.create.start", "network.create.end",
-            "floatingip.update.start", "floatingip.update.end",
-            "floatingip.delete.start", "floatingip.delete.end",
-            "floatingip.create.start", "floatingip.create.end"
+            # "floatingip.update.start", "floatingip.update.end",
+            # "floatingip.delete.start", "floatingip.delete.end",
+            # "floatingip.create.start", "floatingip.create.end"
         ]
 
         sec_group = self.create_sec_group()
@@ -447,16 +543,16 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.network.add_interface_router(
             router['id'], {'subnet_id': subnet['id']})
 
-        server = self.create_basic_server(net=net, sec_groups=[sec_group.name])
-        floating_ips_pool = self.os_clients.compute.floating_ip_pools.list()
-        floating_ip = self.os_clients.compute.floating_ips.create(
-            pool=floating_ips_pool[0].name)
-        self.os_clients.compute.servers.add_floating_ip(server, floating_ip)
+        # server = self.create_basic_server(net=net, sec_groups=[sec_group.name])
+        # floating_ips_pool = self.os_clients.compute.floating_ip_pools.list()
+        # floating_ip = self.os_clients.compute.floating_ips.create(
+        #     pool=floating_ips_pool[0].name)
+        # self.os_clients.compute.servers.add_floating_ip(server, floating_ip)
 
         # Clean
-        self.os_clients.compute.servers.remove_floating_ip(server, floating_ip)
-        self.os_clients.compute.floating_ips.delete(floating_ip)
-        self.os_clients.compute.servers.delete(server)
+        # self.os_clients.compute.servers.remove_floating_ip(server, floating_ip)
+        # self.os_clients.compute.floating_ips.delete(floating_ip)
+        # self.os_clients.compute.servers.delete(server)
         self.os_clients.network.remove_gateway_router(router["id"])
         self.os_clients.network.remove_interface_router(
             router["id"], {"subnet_id": subnet['id']})
@@ -469,6 +565,9 @@ class TestFunctional(base_test.BaseLMATest):
             neutron_event_types, index_type="notification",
             query_filter="Logger:neutron", size=500)
 
+    # This test is suitable only for fuel env,
+    # because there is no working cinder on Mk2x now
+    @pytest.mark.check_env("is_fuel")
     def test_cinder_notifications_toolchain(self):
         """Check that Cinder notifications are present in Elasticsearch
 
@@ -555,49 +654,71 @@ class TestFunctional(base_test.BaseLMATest):
             if service_names[3]:
                 self.influxdb_api.check_count_of_haproxy_backends(
                     service_names[3], expected_count=down_backends_in_haproxy)
+            msg = (
+                "Mail check failed for service: {} "
+                "with new status: {}.".format(service_names[2], new_state))
             utils.wait(
                 lambda: (
                     any(t_node.os.check_local_mail(service_names[2], new_state)
                         for t_node in toolchain_nodes)),
-                timeout=5 * 60, interval=15)
+                timeout=5 * 60, interval=15, timeout_msg=msg)
+
+        def determinate_components_names():
+            # TODO(rpromyshlennikov): refactor:
+            # move to declarative style, use fixtures
+            cmpnts = {
+                "nova": [["nova-api", "nova-api"], ["nova-scheduler", ""]],
+                "cinder": [["cinder-api", "cinder-api"],
+                           ["cinder-scheduler", ""]],
+                "neutron": [
+                    ["neutron-server", "neutron-api"],
+                    # TODO[rpromyshlennikov]: temporary fix,
+                    # because openvswitch-agent is managed by pacemaker
+                    # ["neutron-openvswitch-agent", ""]
+                ],
+                "glance": [["glance-api", "glance-api"]],
+                "heat": [["heat-api", "heat-api"]],
+                "keystone": [["apache2", "keystone-public-api"]]
+            }
+            alerting_names = {}
+            influx_names = {}
+
+            for cmpnt in cmpnts:
+                nagios_service_name = cmpnt
+                influx_service_name = cmpnt
+                if (self.env_type == "fuel" and
+                        settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith(
+                            "1.")):
+                    nagios_service_name = "global-{}".format(cmpnt)
+                    if cmpnt in ("nova", "neutron", "cinder"):
+                        nagios_service_name = "{}-control-plane".format(
+                            nagios_service_name)
+                        influx_service_name = "{}-control-plane".format(
+                            influx_service_name)
+                elif self.env_type == "mk":
+                    if cmpnt in ("nova", "neutron", "cinder"):
+                        nagios_service_name = "{}_control".format(
+                            nagios_service_name)
+                        influx_service_name = "{}-control".format(
+                            influx_service_name)
+                    for item in cmpnts[cmpnt]:
+                        item[1] = item[1].replace("-", "_")
+                    if cmpnt == "keystone":
+                        cmpnts[cmpnt] = [["keystone", "keystone_public_api"]]
+                alerting_names[cmpnt] = nagios_service_name
+                influx_names[cmpnt] = influx_service_name
+            return cmpnts, alerting_names, influx_names
 
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
+        components_names = determinate_components_names()
+        components, names_in_alerting, names_in_influx = components_names
 
-        components = {
-            "nova": [("nova-api", "nova-api"), ("nova-scheduler", None)],
-            "cinder": [("cinder-api", "cinder-api"),
-                       ("cinder-scheduler", None)],
-            "neutron": [
-                ("neutron-server", "neutron-api"),
-                # TODO(rpromyshlennikov): temporary fix,
-                # because openvswitch-agent is managed by pacemaker
-                # ("neutron-openvswitch-agent", None)
-            ],
-            "glance": [("glance-api", "glance-api")],
-            "heat": [("heat-api", "heat-api")],
-            "keystone": [("apache2", "keystone-public-api")]
-        }
+        toolchain_role = "infrastructure_alerting"
+        if self.env_type == "mk":
+            toolchain_role = "monitoring"
+        toolchain_nodes = self.cluster.filter_by_role(toolchain_role)
 
-        services_names_in_alerting = {}
-        services_names_in_influx = {}
-        for component in components:
-            influx_service_name = component
-            if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("0."):
-                nagios_service_name = component
-            else:
-                nagios_service_name = "global-{}".format(component)
-                if component in ("nova", "neutron", "cinder"):
-                    nagios_service_name = "{}-control-plane".format(
-                        nagios_service_name)
-                    influx_service_name = "{}-control-plane".format(
-                        influx_service_name)
-
-            services_names_in_alerting[component] = nagios_service_name
-            services_names_in_influx[component] = influx_service_name
-
-        toolchain_nodes = self.cluster.filter_by_role(
-            "infrastructure_alerting")
         controller_nodes = self.cluster.filter_by_role(
             "controller")[:controllers_count]
 
@@ -607,8 +728,8 @@ class TestFunctional(base_test.BaseLMATest):
                 verify_service_state_change(
                     service_names=[
                         service,
-                        services_names_in_influx[component],
-                        services_names_in_alerting[component],
+                        names_in_influx[component],
+                        names_in_alerting[component],
                         haproxy_backend],
                     action="stop",
                     new_state=statuses[controllers_count][1],
@@ -617,14 +738,17 @@ class TestFunctional(base_test.BaseLMATest):
                 verify_service_state_change(
                     service_names=[
                         service,
-                        services_names_in_influx[component],
-                        services_names_in_alerting[component],
+                        names_in_influx[component],
+                        names_in_alerting[component],
                         haproxy_backend],
                     action="start",
                     new_state="OK",
                     service_state_in_influx=self.OKAY_STATUS,
                     down_backends_in_haproxy=0,)
 
+    # This test is suitable only for fuel env,
+    # because there is no "/dev/mapper/mysql-root" mount point on mk2x
+    @pytest.mark.check_env("is_fuel")
     @pytest.mark.parametrize(
         "disk_usage_percent", [91, 96], ids=["warning", "critical"])
     def test_toolchain_alert_node(self, disk_usage_percent):
