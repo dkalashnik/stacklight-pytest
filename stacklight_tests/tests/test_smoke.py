@@ -91,6 +91,13 @@ class TestSmoke(base_test.BaseLMATest):
             "Hypervisor", "InfluxDB", "Keystone", "LMA self-monitoring",
             "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
         }
+        if self.env_type == "mk":
+            dashboard_names = {
+                "Cassandra", "GlusterFS", "Nginx", "OpenContrail",
+                "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
+                "Hypervisor", "InfluxDB", "Keystone",
+                "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
+            }
         dashboard_names = {panel_name.lower().replace(" ", "-")
                            for panel_name in dashboard_names}
 
