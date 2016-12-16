@@ -134,25 +134,29 @@ class TestFunctional(base_test.BaseLMATest):
             "compute.instance.create.start", "compute.instance.create.end",
             "compute.instance.delete.start", "compute.instance.delete.end",
             "compute.instance.rebuild.start", "compute.instance.rebuild.end",
-            "compute.instance.rebuild.scheduled",
-            "compute.instance.resize.prep.start",
-            "compute.instance.resize.prep.end",
-            "compute.instance.resize.confirm.start",
-            "compute.instance.resize.confirm.end",
-            "compute.instance.resize.revert.start",
-            "compute.instance.resize.revert.end",
-            "compute.instance.exists", "compute.instance.update",
+            # NOTE(rpromyshlennikov):
+            # Disabled in favor of compatibility with Mk2x
+            # "compute.instance.rebuild.scheduled",
+            # "compute.instance.resize.prep.start",
+            # "compute.instance.resize.prep.end",
+            # "compute.instance.resize.confirm.start",
+            # "compute.instance.resize.confirm.end",
+            # "compute.instance.resize.revert.start",
+            # "compute.instance.resize.revert.end",
+            "compute.instance.exists",
+            # "compute.instance.update",
             "compute.instance.shutdown.start", "compute.instance.shutdown.end",
             "compute.instance.power_off.start",
             "compute.instance.power_off.end",
             "compute.instance.power_on.start", "compute.instance.power_on.end",
             "compute.instance.snapshot.start", "compute.instance.snapshot.end",
-            "compute.instance.resize.start", "compute.instance.resize.end",
-            "compute.instance.finish_resize.start",
-            "compute.instance.finish_resize.end",
+            # "compute.instance.resize.start", "compute.instance.resize.end",
+            # "compute.instance.finish_resize.start",
+            # "compute.instance.finish_resize.end",
             "compute.instance.suspend.start", "compute.instance.suspend.end",
-            "scheduler.select_destinations.start",
-            "scheduler.select_destinations.end"]
+            # "scheduler.select_destinations.start",
+            # "scheduler.select_destinations.end"
+        ]
         instance_event_types = nova_event_types[:-2]
         instance = self.create_basic_server()
         logger.info("Update the instance")
@@ -165,23 +169,25 @@ class TestFunctional(base_test.BaseLMATest):
             instance, image, name="rebuilded_instance")
         wait_for_resource_status(
             self.os_clients.compute.servers, instance, "ACTIVE")
-        logger.info("Resize the instance")
-        flavors = self.os_clients.compute.flavors.list(sort_key="memory_mb")
-        self.os_clients.compute.servers.resize(instance, flavors[1])
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
-        logger.info("Confirm the resize")
-        self.os_clients.compute.servers.confirm_resize(instance)
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "ACTIVE")
-        logger.info("Resize the instance")
-        self.os_clients.compute.servers.resize(instance, flavors[2])
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
-        logger.info("Revert the resize")
-        self.os_clients.compute.servers.revert_resize(instance)
-        wait_for_resource_status(
-            self.os_clients.compute.servers, instance, "ACTIVE")
+        # NOTE(rpromyshlennikov):
+        # Disabled in favor of compatibility with Mk2x
+        # logger.info("Resize the instance")
+        # flavors = self.os_clients.compute.flavors.list(sort_key="memory_mb")
+        # self.os_clients.compute.servers.resize(instance, flavors[1])
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
+        # logger.info("Confirm the resize")
+        # self.os_clients.compute.servers.confirm_resize(instance)
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "ACTIVE")
+        # logger.info("Resize the instance")
+        # self.os_clients.compute.servers.resize(instance, flavors[2])
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "VERIFY_RESIZE")
+        # logger.info("Revert the resize")
+        # self.os_clients.compute.servers.revert_resize(instance)
+        # wait_for_resource_status(
+        #     self.os_clients.compute.servers, instance, "ACTIVE")
         logger.info("Stop the instance")
         self.os_clients.compute.servers.stop(instance)
         wait_for_resource_status(
@@ -306,18 +312,18 @@ class TestFunctional(base_test.BaseLMATest):
         Duration 25m
         """
         heat_event_types = [
-            "orchestration.stack.check.start",
-            "orchestration.stack.check.end",
+            # "orchestration.stack.check.start",
+            # "orchestration.stack.check.end",
             "orchestration.stack.create.start",
             "orchestration.stack.create.end",
             "orchestration.stack.delete.start",
             "orchestration.stack.delete.end",
-            "orchestration.stack.resume.start",
-            "orchestration.stack.resume.end",
-            "orchestration.stack.rollback.start",
-            "orchestration.stack.rollback.end",
-            "orchestration.stack.suspend.start",
-            "orchestration.stack.suspend.end"
+            # "orchestration.stack.resume.start",
+            # "orchestration.stack.resume.end",
+            # "orchestration.stack.rollback.start",
+            # "orchestration.stack.rollback.end",
+            # "orchestration.stack.suspend.start",
+            # "orchestration.stack.suspend.end"
         ]
 
         name = utils.rand_name("heat-flavor-")
@@ -330,51 +336,51 @@ class TestFunctional(base_test.BaseLMATest):
 
         parameters = {
             'InstanceType': flavor.name,
-            'ImageId': self.get_cirros_image()["name"],
+            'ImageId': self.get_cirros_image().id,
             'network': self.get_internal_network()["id"],
         }
 
         stack = self.create_stack(template, parameters=parameters)
 
-        self.os_clients.orchestration.actions.suspend(stack.id)
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "SUSPEND_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # self.os_clients.orchestration.actions.suspend(stack.id)
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "SUSPEND_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         resources = self.os_clients.orchestration.resources.list(stack.id)
         resource_server = [res for res in resources
                            if res.resource_type == "OS::Nova::Server"][0]
-        instance = self.os_clients.compute.servers.get(
-            resource_server.physical_resource_id)
+        # instance = self.os_clients.compute.servers.get(
+        #     resource_server.physical_resource_id)
 
-        assert instance.status == "SUSPENDED"
-
-        self.os_clients.orchestration.actions.resume(stack.id)
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "RESUME_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # assert instance.status == "SUSPENDED"
+        #
+        # self.os_clients.orchestration.actions.resume(stack.id)
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "RESUME_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         instance = self.os_clients.compute.servers.get(
             resource_server.physical_resource_id)
         assert instance.status == "ACTIVE"
 
-        self.os_clients.orchestration.actions.check(stack.id)
-
-        utils.wait(
-            (lambda:
-             self.os_clients.orchestration.stacks.get(
-                 stack.id).stack_status == "CHECK_COMPLETE"),
-            interval=10,
-            timeout=180,
-        )
+        # self.os_clients.orchestration.actions.check(stack.id)
+        #
+        # utils.wait(
+        #     (lambda:
+        #      self.os_clients.orchestration.stacks.get(
+        #          stack.id).stack_status == "CHECK_COMPLETE"),
+        #     interval=10,
+        #     timeout=180,
+        # )
 
         self.os_clients.orchestration.stacks.delete(stack.id)
         self.os_clients.compute.flavors.delete(flavor.id)
@@ -425,16 +431,16 @@ class TestFunctional(base_test.BaseLMATest):
             "security_group.delete.start", "security_group.delete.end",
             "security_group.create.start", "security_group.create.end",
             "router.update.start", "router.update.end",
-            "router.interface.delete", "router.interface.create",
+            # "router.interface.delete", "router.interface.create",
             "router.delete.start", "router.delete.end",
             "router.create.start", "router.create.end",
-            "port.delete.start", "port.delete.end",
-            "port.create.start", "port.create.end",
+            # "port.delete.start", "port.delete.end",
+            # "port.create.start", "port.create.end",
             "network.delete.start", "network.delete.end",
             "network.create.start", "network.create.end",
-            "floatingip.update.start", "floatingip.update.end",
-            "floatingip.delete.start", "floatingip.delete.end",
-            "floatingip.create.start", "floatingip.create.end"
+            # "floatingip.update.start", "floatingip.update.end",
+            # "floatingip.delete.start", "floatingip.delete.end",
+            # "floatingip.create.start", "floatingip.create.end"
         ]
 
         sec_group = self.create_sec_group()
@@ -447,16 +453,16 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.network.add_interface_router(
             router['id'], {'subnet_id': subnet['id']})
 
-        server = self.create_basic_server(net=net, sec_groups=[sec_group.name])
-        floating_ips_pool = self.os_clients.compute.floating_ip_pools.list()
-        floating_ip = self.os_clients.compute.floating_ips.create(
-            pool=floating_ips_pool[0].name)
-        self.os_clients.compute.servers.add_floating_ip(server, floating_ip)
+        # server = self.create_basic_server(net=net, sec_groups=[sec_group.name])
+        # floating_ips_pool = self.os_clients.compute.floating_ip_pools.list()
+        # floating_ip = self.os_clients.compute.floating_ips.create(
+        #     pool=floating_ips_pool[0].name)
+        # self.os_clients.compute.servers.add_floating_ip(server, floating_ip)
 
         # Clean
-        self.os_clients.compute.servers.remove_floating_ip(server, floating_ip)
-        self.os_clients.compute.floating_ips.delete(floating_ip)
-        self.os_clients.compute.servers.delete(server)
+        # self.os_clients.compute.servers.remove_floating_ip(server, floating_ip)
+        # self.os_clients.compute.floating_ips.delete(floating_ip)
+        # self.os_clients.compute.servers.delete(server)
         self.os_clients.network.remove_gateway_router(router["id"])
         self.os_clients.network.remove_interface_router(
             router["id"], {"subnet_id": subnet['id']})
