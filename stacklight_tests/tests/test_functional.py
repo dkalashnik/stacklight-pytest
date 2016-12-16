@@ -654,49 +654,71 @@ class TestFunctional(base_test.BaseLMATest):
             if service_names[3]:
                 self.influxdb_api.check_count_of_haproxy_backends(
                     service_names[3], expected_count=down_backends_in_haproxy)
+            msg = (
+                "Mail check failed for service: {} "
+                "with new status: {}.".format(service_names[2], new_state))
             utils.wait(
                 lambda: (
                     any(t_node.os.check_local_mail(service_names[2], new_state)
                         for t_node in toolchain_nodes)),
-                timeout=5 * 60, interval=15)
+                timeout=5 * 60, interval=15, timeout_msg=msg)
+
+        def determinate_components_names():
+            # TODO(rpromyshlennikov): refactor:
+            # move to declarative style, use fixtures
+            cmpnts = {
+                "nova": [["nova-api", "nova-api"], ["nova-scheduler", ""]],
+                "cinder": [["cinder-api", "cinder-api"],
+                           ["cinder-scheduler", ""]],
+                "neutron": [
+                    ["neutron-server", "neutron-api"],
+                    # TODO[rpromyshlennikov]: temporary fix,
+                    # because openvswitch-agent is managed by pacemaker
+                    # ["neutron-openvswitch-agent", ""]
+                ],
+                "glance": [["glance-api", "glance-api"]],
+                "heat": [["heat-api", "heat-api"]],
+                "keystone": [["apache2", "keystone-public-api"]]
+            }
+            alerting_names = {}
+            influx_names = {}
+
+            for cmpnt in cmpnts:
+                nagios_service_name = cmpnt
+                influx_service_name = cmpnt
+                if (self.env_type == "fuel" and
+                        settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith(
+                            "1.")):
+                    nagios_service_name = "global-{}".format(cmpnt)
+                    if cmpnt in ("nova", "neutron", "cinder"):
+                        nagios_service_name = "{}-control-plane".format(
+                            nagios_service_name)
+                        influx_service_name = "{}-control-plane".format(
+                            influx_service_name)
+                elif self.env_type == "mk":
+                    if cmpnt in ("nova", "neutron", "cinder"):
+                        nagios_service_name = "{}_control".format(
+                            nagios_service_name)
+                        influx_service_name = "{}-control".format(
+                            influx_service_name)
+                    for item in cmpnts[cmpnt]:
+                        item[1] = item[1].replace("-", "_")
+                    if cmpnt == "keystone":
+                        cmpnts[cmpnt] = [["keystone", "keystone_public_api"]]
+                alerting_names[cmpnt] = nagios_service_name
+                influx_names[cmpnt] = influx_service_name
+            return cmpnts, alerting_names, influx_names
 
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
+        components_names = determinate_components_names()
+        components, names_in_alerting, names_in_influx = components_names
 
-        components = {
-            "nova": [("nova-api", "nova-api"), ("nova-scheduler", None)],
-            "cinder": [("cinder-api", "cinder-api"),
-                       ("cinder-scheduler", None)],
-            "neutron": [
-                ("neutron-server", "neutron-api"),
-                # TODO(rpromyshlennikov): temporary fix,
-                # because openvswitch-agent is managed by pacemaker
-                # ("neutron-openvswitch-agent", None)
-            ],
-            "glance": [("glance-api", "glance-api")],
-            "heat": [("heat-api", "heat-api")],
-            "keystone": [("apache2", "keystone-public-api")]
-        }
+        toolchain_role = "infrastructure_alerting"
+        if self.env_type == "mk":
+            toolchain_role = "monitoring"
+        toolchain_nodes = self.cluster.filter_by_role(toolchain_role)
 
-        services_names_in_alerting = {}
-        services_names_in_influx = {}
-        for component in components:
-            influx_service_name = component
-            if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("0."):
-                nagios_service_name = component
-            else:
-                nagios_service_name = "global-{}".format(component)
-                if component in ("nova", "neutron", "cinder"):
-                    nagios_service_name = "{}-control-plane".format(
-                        nagios_service_name)
-                    influx_service_name = "{}-control-plane".format(
-                        influx_service_name)
-
-            services_names_in_alerting[component] = nagios_service_name
-            services_names_in_influx[component] = influx_service_name
-
-        toolchain_nodes = self.cluster.filter_by_role(
-            "infrastructure_alerting")
         controller_nodes = self.cluster.filter_by_role(
             "controller")[:controllers_count]
 
@@ -706,8 +728,8 @@ class TestFunctional(base_test.BaseLMATest):
                 verify_service_state_change(
                     service_names=[
                         service,
-                        services_names_in_influx[component],
-                        services_names_in_alerting[component],
+                        names_in_influx[component],
+                        names_in_alerting[component],
                         haproxy_backend],
                     action="stop",
                     new_state=statuses[controllers_count][1],
@@ -716,8 +738,8 @@ class TestFunctional(base_test.BaseLMATest):
                 verify_service_state_change(
                     service_names=[
                         service,
-                        services_names_in_influx[component],
-                        services_names_in_alerting[component],
+                        names_in_influx[component],
+                        names_in_alerting[component],
                         haproxy_backend],
                     action="start",
                     new_state="OK",
