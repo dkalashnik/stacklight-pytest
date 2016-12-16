@@ -22,17 +22,20 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
+        services = {
             'haproxy',
             'ovsdb-server',
-#            'ovs-vswitchd',
+            'ovs-vswitchd',
             'dhcp-agent',
             'metadata-agent',
             'neutron-netns-cleanup',
             'openvswitch-agent',
             'neutron-openvswitch-agent',
             'server',
-        }:
+        }
+        if self.is_mk:
+            services.remove('ovs-vswitchd')
+        for program_name in services:
             self.check_program(program_name)
 
     @pytest.mark.mk
@@ -44,7 +47,7 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'swift-container-server',  # TODO(akostrikov) swift?
+            'swift-container-server',
         }:
             self.check_program(program_name)
 
@@ -56,9 +59,15 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
-            'glusterd',  # TODO(akostrikov) any other services?
-        }:
+        services = {
+            'api',
+            'cache',
+            'glare',
+            'registry',
+        }
+        if self.is_mk:
+            services = {'glusterd'}
+        for program_name in services:
             self.check_program(program_name)
 
     @pytest.mark.mk
@@ -74,7 +83,7 @@ class TestKibana(base_test.BaseLMATest):
             'keystone-wsgi-main',
             'keystone-wsgi-main',
             'keystone-admin',
-            'keystone-manage',  # TODO(akostrikov) How it should be triggered
+            'keystone-manage',
             'keystone-public',
         }:
             self.check_program(program_name)
@@ -122,7 +131,7 @@ class TestKibana(base_test.BaseLMATest):
         """
         for program_name in {
             'nova-scheduler',
-            'libvirt',  # TODO(akostrikov) need to fix in mk
+            'libvirt',
             'nova-api',
             'nova-compute',
             'nova-conductor',
@@ -138,7 +147,7 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'rabbitmq*',  # TODO(akostrikov) need to fix in mk
+            'rabbitmq*',
         }:
             self.check_program(program_name)
 
@@ -151,7 +160,7 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'horizon*',  # TODO(akostrikov) need to fix in mk
+            'horizon*',
         }:
             self.check_program(program_name)
 
@@ -163,11 +172,16 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
+        services = {
             'cron',
-#            'kern',  TODO(akostrikov) need to find more concrete logs
-#            'syslog',
-#            'messages',
+            'kern',
+            'syslog',
+            'messages',
             'debug',
-        }:
+        }
+        if self.is_mk:
+            services.remove('kern')
+            services.remove('syslog')
+            services.remove('messages')
+        for program_name in services:
             self.check_program(program_name)
