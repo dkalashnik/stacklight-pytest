@@ -65,6 +65,96 @@ class TestOpenStackClients(base_test.BaseLMATest):
         print(list(self.os_clients.orchestration.stacks.list()))
         print(list(self.os_clients.image.images.list()))
 
+    def test_delete_all_resources(self, resources_ids=None):
+        default_resources_ids = {
+            "floating_ips": [],
+            "nets": [],
+            "ports": [],
+            "routers": [],
+            "sec_groups": [],
+            "servers": [],
+            "stacks": [],
+            "subnets": [],
+        }
+
+        resources_ids = resources_ids or default_resources_ids
+
+        for stack_id in resources_ids["stacks"]:
+            stack = self.os_clients.orchestration.stacks.get(stack_id)
+            self.os_clients.orchestration.stacks.delete(stack.id)
+
+        for floating_ip_id in resources_ids["floating_ips"]:
+            floating_ip = self.os_clients.compute.floating_ips.get(
+                floating_ip_id)
+            self.os_clients.compute.floating_ips.delete(floating_ip)
+
+        for server_id in resources_ids["servers"]:
+            server = self.os_clients.compute.servers.get(server_id)
+            self.os_clients.compute.servers.delete(server)
+
+        routers = []
+        for net_res_id in resources_ids["routers"]:
+            try:
+                router = self.os_clients.network.show_router(net_res_id)
+                if router:
+                    routers.append(router["router"])
+                    self.os_clients.network.remove_gateway_router(
+                        router["router"]["id"])
+            except Exception as e:
+                print(e)
+
+        subnets = []
+        for net_res_id in resources_ids["subnets"]:
+            try:
+                subnet = self.os_clients.network.show_subnet(net_res_id)
+                if subnet:
+                    subnets.append(subnet["subnet"])
+            except Exception as e:
+                print(e)
+
+        for router in routers:
+            for subnet in subnets:
+                try:
+                    self.os_clients.network.remove_interface_router(
+                        router["id"], {"subnet_id": subnet['id']})
+                except Exception as e:
+                    print(e)
+            self.os_clients.network.delete_router(router['id'])
+
+        for port_id in resources_ids["ports"]:
+            try:
+                port = self.os_clients.network.show_port(port_id)["port"]
+                self.os_clients.network.delete_port(port['id'])
+            except Exception as e:
+                print(e)
+
+        for port in self.os_clients.network.list_ports()["ports"]:
+            try:
+                self.os_clients.network.delete_port(port['id'])
+            except Exception as e:
+                print(e)
+
+        for subnet in subnets:
+            try:
+                self.os_clients.network.delete_subnet(subnet['id'])
+            except Exception as e:
+                print(e)
+
+        for net_res_id in resources_ids["nets"]:
+            try:
+                self.os_clients.network.delete_network(net_res_id)
+            except Exception as e:
+                print(e)
+
+        for sec_group_id in resources_ids["sec_groups"]:
+            try:
+                sec_group = self.os_clients.compute.security_groups.get(
+                    sec_group_id)
+                if sec_group:
+                    self.os_clients.compute.security_groups.delete(sec_group)
+            except Exception as e:
+                print(e)
+
 
 class TestFunctional(base_test.BaseLMATest):
 
