@@ -1,0 +1,82 @@
+fuel:
+  '0':
+    cinder: !!python/tuple
+    - cinder
+    - cinder
+    - - [cinder-api, cinder-api]
+      - [cinder-scheduler, '']
+    glance: !!python/tuple
+    - glance
+    - glance
+    - - [glance-api, glance-api]
+    heat: !!python/tuple
+    - heat
+    - heat
+    - - [heat-api, heat-api]
+    keystone: !!python/tuple
+    - keystone
+    - keystone
+    - - [apache2, keystone-public-api]
+    neutron: !!python/tuple
+    - neutron
+    - neutron
+    - - [neutron-server, neutron-api]
+    nova: !!python/tuple
+    - nova
+    - nova
+    - - [nova-api, nova-api]
+      - [nova-scheduler, '']
+  '1':
+    cinder: !!python/tuple
+    - cinder-control-plane
+    - global-cinder-control-plane
+    - - [cinder-api, cinder-api]
+      - [cinder-scheduler, '']
+    glance: !!python/tuple
+    - glance
+    - global-glance
+    - - [glance-api, glance-api]
+    heat: !!python/tuple
+    - heat
+    - global-heat
+    - - [heat-api, heat-api]
+    keystone: !!python/tuple
+    - keystone
+    - global-keystone
+    - - [apache2, keystone-public-api]
+    neutron: !!python/tuple
+    - neutron-control-plane
+    - global-neutron-control-plane
+    - - [neutron-server, neutron-api]
+    nova: !!python/tuple
+    - nova-control-plane
+    - global-nova-control-plane
+    - - [nova-api, nova-api]
+      - [nova-scheduler, '']
+mk:
+  cinder: !!python/tuple
+  - cinder-control
+  - cinder_control
+  - - [cinder-api, cinder_api]
+    - [cinder-scheduler, '']
+  glance: !!python/tuple
+  - glance
+  - glance
+  - - [glance-api, glance_api]
+  heat: !!python/tuple
+  - heat
+  - heat
+  - - [heat-api, heat_api]
+  keystone: !!python/tuple
+  - keystone
+  - keystone
+  - - [keystone, keystone_public_api]
+  neutron: !!python/tuple
+  - neutron-control
+  - neutron_control
+  - - [neutron-server, neutron_api]
+  nova: !!python/tuple
+  - nova-control
+  - nova_control
+  - - [nova-api, nova_api]
+    - [nova-scheduler, '']

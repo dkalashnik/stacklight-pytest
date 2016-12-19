@@ -4,6 +4,7 @@ import logging
 import time
 
 import pytest
+import yaml
 
 from stacklight_tests import settings
 from stacklight_tests.tests import base_test
@@ -23,6 +24,26 @@ def wait_for_resource_status(resource_client, resource,
         timeout=timeout,
         timeout_msg=msg
     )
+
+
+def determinate_components_names():
+    env_type = utils.load_config().get("env", {}).get("type", "")
+    with open(utils.get_fixture(
+            "components_names.yaml", ("tests",))) as names_file:
+        components_names = yaml.load(names_file)
+
+    # TODO(rpromyshlennikov): temporary fix: ovs service was not included,
+    # because openvswitch-agent is managed by pacemaker
+    # ["neutron-openvswitch-agent", ""]
+    components = components_names["fuel"]["0"]
+
+    if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("1."):
+        components = components_names["fuel"]["1"]
+
+    if env_type == "mk":
+        components = components_names["mk"]
+
+    return components
 
 
 class TestOpenStackClients(base_test.BaseLMATest):
@@ -128,11 +149,12 @@ class TestOpenStackClients(base_test.BaseLMATest):
             except Exception as e:
                 print(e)
 
-        for port in self.os_clients.network.list_ports()["ports"]:
-            try:
-                self.os_clients.network.delete_port(port['id'])
-            except Exception as e:
-                print(e)
+        if resources_ids["ports"]:
+            for port in self.os_clients.network.list_ports()["ports"]:
+                try:
+                    self.os_clients.network.delete_port(port['id'])
+                except Exception as e:
+                    print(e)
 
         for subnet in subnets:
             try:
@@ -601,8 +623,11 @@ class TestFunctional(base_test.BaseLMATest):
             query_filter='volume_id:"{}"'.format(volume.id), size=500)
 
     @pytest.mark.parametrize(
+        "components", determinate_components_names().values(),
+        ids=determinate_components_names().keys())
+    @pytest.mark.parametrize(
         "controllers_count", [1, 2], ids=["warning", "critical"])
-    def test_toolchain_alert_service(self, controllers_count):
+    def test_toolchain_alert_service(self, components, controllers_count):
         """Verify that the warning and critical alerts for services
         show up in the Grafana and Nagios UI.
 
@@ -663,56 +688,9 @@ class TestFunctional(base_test.BaseLMATest):
                         for t_node in toolchain_nodes)),
                 timeout=5 * 60, interval=15, timeout_msg=msg)
 
-        def determinate_components_names():
-            # TODO(rpromyshlennikov): refactor:
-            # move to declarative style, use fixtures
-            cmpnts = {
-                "nova": [["nova-api", "nova-api"], ["nova-scheduler", ""]],
-                "cinder": [["cinder-api", "cinder-api"],
-                           ["cinder-scheduler", ""]],
-                "neutron": [
-                    ["neutron-server", "neutron-api"],
-                    # TODO[rpromyshlennikov]: temporary fix,
-                    # because openvswitch-agent is managed by pacemaker
-                    # ["neutron-openvswitch-agent", ""]
-                ],
-                "glance": [["glance-api", "glance-api"]],
-                "heat": [["heat-api", "heat-api"]],
-                "keystone": [["apache2", "keystone-public-api"]]
-            }
-            alerting_names = {}
-            influx_names = {}
-
-            for cmpnt in cmpnts:
-                nagios_service_name = cmpnt
-                influx_service_name = cmpnt
-                if (self.env_type == "fuel" and
-                        settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith(
-                            "1.")):
-                    nagios_service_name = "global-{}".format(cmpnt)
-                    if cmpnt in ("nova", "neutron", "cinder"):
-                        nagios_service_name = "{}-control-plane".format(
-                            nagios_service_name)
-                        influx_service_name = "{}-control-plane".format(
-                            influx_service_name)
-                elif self.env_type == "mk":
-                    if cmpnt in ("nova", "neutron", "cinder"):
-                        nagios_service_name = "{}_control".format(
-                            nagios_service_name)
-                        influx_service_name = "{}-control".format(
-                            influx_service_name)
-                    for item in cmpnts[cmpnt]:
-                        item[1] = item[1].replace("-", "_")
-                    if cmpnt == "keystone":
-                        cmpnts[cmpnt] = [["keystone", "keystone_public_api"]]
-                alerting_names[cmpnt] = nagios_service_name
-                influx_names[cmpnt] = influx_service_name
-            return cmpnts, alerting_names, influx_names
-
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
-        components_names = determinate_components_names()
-        components, names_in_alerting, names_in_influx = components_names
+        name_in_influx, name_in_alerting, services = components
 
         toolchain_role = "infrastructure_alerting"
         if self.env_type == "mk":
@@ -722,29 +700,28 @@ class TestFunctional(base_test.BaseLMATest):
         controller_nodes = self.cluster.filter_by_role(
             "controller")[:controllers_count]
 
-        for component in components:
-            for (service, haproxy_backend) in components[component]:
-                logger.info("Checking service {0}".format(service))
-                verify_service_state_change(
-                    service_names=[
-                        service,
-                        names_in_influx[component],
-                        names_in_alerting[component],
-                        haproxy_backend],
-                    action="stop",
-                    new_state=statuses[controllers_count][1],
-                    service_state_in_influx=statuses[controllers_count][0],
-                    down_backends_in_haproxy=controllers_count,)
-                verify_service_state_change(
-                    service_names=[
-                        service,
-                        names_in_influx[component],
-                        names_in_alerting[component],
-                        haproxy_backend],
-                    action="start",
-                    new_state="OK",
-                    service_state_in_influx=self.OKAY_STATUS,
-                    down_backends_in_haproxy=0,)
+        for (service, haproxy_backend) in services:
+            logger.info("Checking service {0}".format(service))
+            verify_service_state_change(
+                service_names=[
+                    service,
+                    name_in_influx,
+                    name_in_alerting,
+                    haproxy_backend],
+                action="stop",
+                new_state=statuses[controllers_count][1],
+                service_state_in_influx=statuses[controllers_count][0],
+                down_backends_in_haproxy=controllers_count,)
+            verify_service_state_change(
+                service_names=[
+                    service,
+                    name_in_influx,
+                    name_in_alerting,
+                    haproxy_backend],
+                action="start",
+                new_state="OK",
+                service_state_in_influx=self.OKAY_STATUS,
+                down_backends_in_haproxy=0,)
 
     # This test is suitable only for fuel env,
     # because there is no "/dev/mapper/mysql-root" mount point on mk2x
