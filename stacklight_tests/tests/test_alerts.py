@@ -104,17 +104,17 @@ class TestAlerts(base_test.BaseLMATest):
             "to {db_name}.' , {method}(table_name) , ';') "
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
-            "\" | mysql {creds} ").format(creds=creds)
+            "\" | mysql {creds} ")
 
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method='upper'))
+            cmd.format(db_name=db_name, method='upper', creds=creds))
         try:
             yield
         finally:
             # TODO(rpromyshlennikov): use "check_call" instead of exec_command
             exit_code, _, _ = controller.os.transport.exec_sync(
-                cmd.format(db_name=db_name, method='lower'))
+                cmd.format(db_name=db_name, method='lower', creds=creds))
 
     @pytest.mark.mk
     def test_nova_api_logs_errors_alarms(self):
