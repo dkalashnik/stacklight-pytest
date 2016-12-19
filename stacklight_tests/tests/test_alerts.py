@@ -93,23 +93,27 @@ class TestAlerts(base_test.BaseLMATest):
         :type controller: nailgun node
         :returns: None, works as context manager
         """
+        creds = ''
+        if self.is_mk:
+            creds = '-u debian-sys-maint -pworkshop'
         cmd = (
-            "mysql -AN  -u debian-sys-maint -pworkshop  -e "
+            "mysql -AN {creds} -e "
             "\"select concat("
             "'rename table {db_name}.', table_name, ' "
             "to {db_name}.' , {method}(table_name) , ';') "
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
-            "\" | mysql  -u debian-sys-maint -pworkshop ")
+            "\" | mysql {creds} ").format(creds=creds)
+
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="upper"))
+            cmd.format(db_name=db_name, method='upper'))
         try:
             yield
         finally:
             # TODO(rpromyshlennikov): use "check_call" instead of exec_command
             exit_code, _, _ = controller.os.transport.exec_sync(
-                cmd.format(db_name=db_name, method="lower"))
+                cmd.format(db_name=db_name, method='lower'))
 
     @pytest.mark.mk
     def test_nova_api_logs_errors_alarms(self):
@@ -402,9 +406,11 @@ class TestAlerts(base_test.BaseLMATest):
             'libvirtd': 'libvirt_check',
             'rabbitmq-server': 'rabbitmq_check',
             'memcached': 'memcached_check',
-#            'apache2': 'apache_check',
             'mysql': 'mysql_check'
         }
+        if not self.is_mk:
+            service_mapper['apache2'] = 'apache_check'
+
         status_operating = 1
         status_down = 0
 
@@ -461,6 +467,7 @@ class TestAlerts(base_test.BaseLMATest):
         ctl3 = controllers[2]
 
         ok_status = self.OKAY_STATUS
+
         def check_ok_result():
             query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=ok_status)
             return len(influxdb_api.do_influxdb_query(
@@ -472,6 +479,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         ctl1.os.transport.exec_sync('service rabbitmq-server stop')
         warn_status = self.WARNING_STATUS
+
         def check_warn_result():
             query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=warn_status)
             return len(influxdb_api.do_influxdb_query(
@@ -485,6 +493,7 @@ class TestAlerts(base_test.BaseLMATest):
         ctl2.os.transport.exec_sync('service rabbitmq-server stop')
 
         crit_status = self.CRITICAL_STATUS
+
         def check_crit_result():
             query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=crit_status)
             return len(influxdb_api.do_influxdb_query(
@@ -499,6 +508,7 @@ class TestAlerts(base_test.BaseLMATest):
         ctl3.os.transport.exec_sync('service rabbitmq-server stop')
 
         down_status = self.DOWN_STATUS
+
         def check_down_result():
             query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=down_status)
             return len(influxdb_api.do_influxdb_query(
@@ -522,3 +532,58 @@ class TestAlerts(base_test.BaseLMATest):
                    interval=10,
                    timeout_msg='No message')
 
+    @pytest.mark.fuel
+    @pytest.mark.skipif('self.is_mk')
+    def test_rabbitmq_pacemaker_alarms_fuel(self):
+        """Check that rabbitmq-pacemaker-* alarms work as expected.
+
+        Scenario:
+            1. Stop one slave RabbitMQ instance.
+            2. Check that the status of the RabbitMQ cluster is warning.
+            3. Stop the second slave RabbitMQ instance.
+            4. Check that the status of the RabbitMQ cluster is critical.
+            5. Stop the master RabbitMQ instance.
+            6. Check that the status of the RabbitMQ cluster is down.
+            7. Clear the RabbitMQ resource.
+            8. Check that the status of the RabbitMQ cluster is okay.
+
+        Duration 10m
+        """
+        controllers = self.cluster.get_controllers()
+        self.influxdb_api.check_alarms(
+            'service',
+            'rabbitmq-cluster',
+            None,
+            None,
+            self.OKAY_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.WARNING_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.CRITICAL_STATUS)
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
+        controllers[2].os.transport.exec_sync('service rabbitmq-server stop')
+        self.influxdb_api.check_alarms(
+            'service', 'rabbitmq-cluster',
+            None,
+            None, self.DOWN_STATUS)  # TODO: fails here
+
+        controllers[0].os.transport.exec_sync('service rabbitmq-server start')
+        controllers[1].os.transport.exec_sync('service rabbitmq-server start')
+        controllers[2].os.transport.exec_sync('service rabbitmq-server start')
+        self.influxdb_api.check_alarms(
+            'service',
+            'rabbitmq-cluster',
+            None,
+            None,
+            self.OKAY_STATUS)
