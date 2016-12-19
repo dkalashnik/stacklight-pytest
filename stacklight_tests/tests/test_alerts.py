@@ -673,7 +673,7 @@ class TestAlerts(base_test.BaseLMATest):
             'memcached': 'memcached_check',
             'mysql': 'mysql_check'
         }
-        if self.is_mk:
+        if not self.is_mk:
             service_mapper['apache2'] = 'apache_check'
 
         status_operating = 1
