@@ -7,6 +7,7 @@ import time
 
 from stacklight_tests import custom_exceptions
 from stacklight_tests import utils
+from stacklight_tests.custom_exceptions import FuelEnvAtMK
 from stacklight_tests.tests import base_test
 
 logger = logging.getLogger(__name__)
@@ -533,7 +534,7 @@ class TestAlerts(base_test.BaseLMATest):
                    timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif('self.is_mk')
+    @pytest.mark.skipif(raises=FuelEnvAtMK)
     def test_rabbitmq_pacemaker_alarms_fuel(self):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
@@ -549,6 +550,8 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        if not self.is_mk:
+            raise FuelEnvAtMK()
         controllers = self.cluster.get_controllers()
         self.influxdb_api.check_alarms(
             'service',

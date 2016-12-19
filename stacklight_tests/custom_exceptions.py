@@ -18,6 +18,10 @@ class NoValidHost(BaseCustomException):
     msg_fmt = "No host with condition '%(condition)s' in cluster"
 
 
+class FuelEnvAtMK(BaseCustomException):
+    msg_fmt = "Fuel environment tested at MK test case"
+
+
 class EmptyCluster(BaseCustomException):
     msg_fmt = "No hosts in cluster"
 
