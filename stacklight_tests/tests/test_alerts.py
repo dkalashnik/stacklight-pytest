@@ -148,7 +148,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_nova_api_logs_errors_alarms_fuel(self):
         """Check that nova-logs-error and nova-api-http-errors alarms work as
            expected.
@@ -163,7 +163,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         client = self.os_clients.compute
 
@@ -219,7 +219,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_neutron_api_logs_errors_alarms_fuel(self):
         """Check that neutron-logs-error and neutron-api-http-errors
            alarms work as expected.
@@ -235,7 +235,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         net_client = self.os_clients.network
 
@@ -286,7 +286,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_glance_api_logs_errors_alarms_fuel(self):
         """Check that glance-logs-error and glance-api-http-errors alarms
            work as expected.
@@ -302,7 +302,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         image_client = self.os_clients.image
 
@@ -354,7 +354,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def check_heat_api_logs_errors_alarms_fuel(self):
         """Check that heat-logs-error and heat-api-http-errors alarms work as
            expected.
@@ -369,7 +369,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         controller = self.cluster.get_random_controller()
 
@@ -418,7 +418,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_cinder_api_logs_errors_alarms_fuel(self):
         """Check that cinder-logs-error and cinder-api-http-errors alarms
            work as expected.
@@ -434,7 +434,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         controller = self.cluster.get_random_controller()
         cinder_client = self.os_clients.volume
@@ -485,7 +485,7 @@ class TestAlerts(base_test.BaseLMATest):
                        timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_keystone_api_logs_errors_alarms_fuel(self):
         """Check that keystone-logs-error, keystone-public-api-http-errors and
            keystone-admin-api-http-errors alarms work as expected.
@@ -503,7 +503,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         def get_users_list(level):
             additional_cmds = {
@@ -575,7 +575,7 @@ class TestAlerts(base_test.BaseLMATest):
         controller.os.transport.exec_sync('initctl start swift-account')
 
         @pytest.mark.fuel
-        @pytest.mark.skipif(raises=FuelEnvAtMK)
+        @pytest.mark.xfail(raises=FuelEnvAtMK)
         def test_swift_api_logs_errors_alarms_fuel(self):
             """Check that swift-logs-error and swift-api-http-error alarms
                work as expected.
@@ -591,7 +591,7 @@ class TestAlerts(base_test.BaseLMATest):
 
             Duration 15m
             """
-            if not self.is_mk:
+            if self.is_mk:
                 raise FuelEnvAtMK()
             controller = self.cluster.get_random_controller()
 
@@ -673,7 +673,7 @@ class TestAlerts(base_test.BaseLMATest):
             'memcached': 'memcached_check',
             'mysql': 'mysql_check'
         }
-        if not self.is_mk:
+        if self.is_mk:
             service_mapper['apache2'] = 'apache_check'
 
         status_operating = 1
@@ -797,7 +797,7 @@ class TestAlerts(base_test.BaseLMATest):
                    timeout_msg='No message')
 
     @pytest.mark.fuel
-    @pytest.mark.skipif(raises=FuelEnvAtMK)
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
     def test_rabbitmq_pacemaker_alarms_fuel(self):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
@@ -813,7 +813,7 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        if not self.is_mk:
+        if self.is_mk:
             raise FuelEnvAtMK()
         controllers = self.cluster.get_controllers()
         self.influxdb_api.check_alarms(
