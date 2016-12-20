@@ -4,13 +4,18 @@ import contextlib
 import logging
 import time
 
+import pytest
+
 from stacklight_tests import custom_exceptions
+from stacklight_tests import utils
+from stacklight_tests.custom_exceptions import FuelEnvAtMK
 from stacklight_tests.tests import base_test
 
 logger = logging.getLogger(__name__)
 
 
 class TestAlerts(base_test.BaseLMATest):
+    @pytest.mark.mk_in_progress
     def test_check_rabbitmq_disk_alarm(self):
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
@@ -34,6 +39,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_disk_alarms(controller, self.CRITICAL_STATUS,
                                          self.RABBITMQ_DISK_CRITICAL_PERCENT)
 
+    @pytest.mark.mk_in_progress
     def test_check_rabbitmq_memory_alarm(self):
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
@@ -59,6 +65,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
                                            self.RABBITMQ_MEMORY_CRITICAL_VALUE)
 
+    @pytest.mark.skip(reason="Destructive")
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
            expected.
@@ -88,24 +95,29 @@ class TestAlerts(base_test.BaseLMATest):
         :type controller: nailgun node
         :returns: None, works as context manager
         """
+        creds = ''
+        if self.is_mk:
+            creds = '-u debian-sys-maint -pworkshop'
         cmd = (
-            "mysql -AN -e "
+            "mysql -AN {creds} -e "
             "\"select concat("
             "'rename table {db_name}.', table_name, ' "
             "to {db_name}.' , {method}(table_name) , ';') "
             "from information_schema.tables "
             "where table_schema = '{db_name}';"
-            "\" | mysql")
+            "\" | mysql {creds} ")
+
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         exit_code, _, _ = controller.os.transport.exec_sync(
-            cmd.format(db_name=db_name, method="upper"))
+            cmd.format(db_name=db_name, method='upper', creds=creds))
         try:
             yield
         finally:
             # TODO(rpromyshlennikov): use "check_call" instead of exec_command
             exit_code, _, _ = controller.os.transport.exec_sync(
-                cmd.format(db_name=db_name, method="lower"))
+                cmd.format(db_name=db_name, method='lower', creds=creds))
 
+    @pytest.mark.mk
     def test_nova_api_logs_errors_alarms(self):
         """Check that nova-logs-error and nova-api-http-errors alarms work as
            expected.
@@ -120,6 +132,40 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_nova_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'nova-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        # nova_service
+        with self.make_logical_db_unavailable('nova', controller):
+            utils.wait(check_nova_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_nova_api_logs_errors_alarms_fuel(self):
+        """Check that nova-logs-error and nova-api-http-errors alarms work as
+           expected.
+
+        Scenario:
+            1. Rename all nova tables to UPPERCASE.
+            2. Run some nova list command repeatedly.
+            3. Check the last value of the nova-logs-error alarm in InfluxDB.
+            4. Check the last value of the nova-api-http-errors alarm
+               in InfluxDB.
+            5. Revert all nova tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
         client = self.os_clients.compute
 
         def get_servers_list():
@@ -136,6 +182,7 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_servers_list, 1, metrics, self.WARNING_STATUS)
 
+    @pytest.mark.skip(reason="Not enough destructive metrics")
     def test_neutron_api_logs_errors_alarms(self):
         """Check that neutron-logs-error and neutron-api-http-errors
            alarms work as expected.
@@ -151,6 +198,46 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        # TODO(akostrikov) Should we skip neutron or add to lma more metrics?
+        # Available neutron metrics:
+        # openstack_neutron_http_response_times
+        # openstack_neutron_networks
+        # openstack_neutron_subnets
+        controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'neutron-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        # nova_service
+        with self.make_logical_db_unavailable('neutron', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_neutron_api_logs_errors_alarms_fuel(self):
+        """Check that neutron-logs-error and neutron-api-http-errors
+           alarms work as expected.
+
+        Scenario:
+            1. Rename all neutron tables to UPPERCASE.
+            2. Run some neutron agents list command repeatedly.
+            3. Check the last value of the neutron-logs-error alarm
+               in InfluxDB.
+            4. Check the last value of the neutron-api-http-errors alarm
+               in InfluxDB.
+            5. Revert all neutron tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
         net_client = self.os_clients.network
 
         def get_agents_list():
@@ -166,6 +253,8 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_agents_list, 1, metrics, self.WARNING_STATUS)
 
+
+    @pytest.mark.mk
     def test_glance_api_logs_errors_alarms(self):
         """Check that glance-logs-error and glance-api-http-errors alarms
            work as expected.
@@ -181,6 +270,41 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'glance\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+
+        with self.make_logical_db_unavailable('glance', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_glance_api_logs_errors_alarms_fuel(self):
+        """Check that glance-logs-error and glance-api-http-errors alarms
+           work as expected.
+
+        Scenario:
+            1. Rename all glance tables to UPPERCASE.
+            2. Run some glance image list command repeatedly.
+            3. Check the last value of the glance-logs-error alarm
+               in InfluxDB.
+            4. Check the last value of the glance-api-http-errors alarm
+               in InfluxDB.
+            5. Revert all glance tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
         image_client = self.os_clients.image
 
         def get_images_list():
@@ -198,7 +322,9 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_images_list, 1, metrics, self.WARNING_STATUS)
 
-    def check_heat_api_logs_errors_alarms(self):
+
+    @pytest.mark.mk
+    def test_heat_api_logs_errors_alarms(self):
         """Check that heat-logs-error and heat-api-http-errors alarms work as
            expected.
 
@@ -213,6 +339,40 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'heat\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+
+        with self.make_logical_db_unavailable('heat', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def check_heat_api_logs_errors_alarms_fuel(self):
+        """Check that heat-logs-error and heat-api-http-errors alarms work as
+           expected.
+
+        Scenario:
+            1. Rename all heat tables to UPPERCASE.
+            2. Run some heat stack list command repeatedly.
+            3. Check the last value of the heat-logs-error alarm in InfluxDB.
+            4. Check the last value of the heat-api-http-errors alarm
+               in InfluxDB.
+            5. Revert all heat tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
+        controller = self.cluster.get_random_controller()
 
         def get_stacks_list():
             try:
@@ -226,6 +386,7 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_stacks_list, 100, metrics, self.WARNING_STATUS)
 
+    @pytest.mark.skip(reason="Not enough destructive metrics")
     def test_cinder_api_logs_errors_alarms(self):
         """Check that cinder-logs-error and cinder-api-http-errors alarms
            work as expected.
@@ -242,6 +403,41 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
+
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'cinder-control\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+
+        with self.make_logical_db_unavailable('cinder', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_cinder_api_logs_errors_alarms_fuel(self):
+        """Check that cinder-logs-error and cinder-api-http-errors alarms
+           work as expected.
+
+        Scenario:
+            1. Rename all cinder tables to UPPERCASE.
+            2. Run some cinder list command repeatedly.
+            3. Check the last value of the cinder-logs-error alarm
+               in InfluxDB.
+            4. Check the last value of the cinder-api-http-errors alarm
+               in InfluxDB.
+            5. Revert all cinder tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
+        controller = self.cluster.get_random_controller()
         cinder_client = self.os_clients.volume
 
         def get_volumes_list():
@@ -255,6 +451,7 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_volumes_list, 1, metrics, self.WARNING_STATUS)
 
+    @pytest.mark.mk
     def test_keystone_api_logs_errors_alarms(self):
         """Check that keystone-logs-error, keystone-public-api-http-errors and
            keystone-admin-api-http-errors alarms work as expected.
@@ -272,7 +469,43 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        controller = self.cluster.get_random_controller()
+        influxdb_api = self.influxdb_api
+        warning = self.WARNING_STATUS
 
+        def check_neutron_result():
+            query = 'SELECT * FROM "cluster_status" WHERE "cluster_name" = \'keystone\' and time >= now() - 10s and value = {value} ;'.format(
+                value=warning)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        # nova_service
+        with self.make_logical_db_unavailable('keystone', controller):
+            utils.wait(check_neutron_result,
+                       timeout=60 * 5,
+                       interval=10,
+                       timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_keystone_api_logs_errors_alarms_fuel(self):
+        """Check that keystone-logs-error, keystone-public-api-http-errors and
+           keystone-admin-api-http-errors alarms work as expected.
+
+        Scenario:
+            1. Rename all keystone tables to UPPERCASE.
+            2. Run some keystone stack list command repeatedly.
+            3. Check the last value of the keystone-logs-error alarm
+               in InfluxDB.
+            4. Check the last value of the keystone-public-api-http-errors
+               alarm in InfluxDB.
+            5. Check the last value of the keystone-admin-api-http-errors
+               alarm in InfluxDB.
+            6. Revert all keystone tables names to lowercase.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
         def get_users_list(level):
             additional_cmds = {
                 "user": ("&& export OS_AUTH_URL="
@@ -306,7 +539,8 @@ class TestAlerts(base_test.BaseLMATest):
             self.verify_service_alarms(
                 get_users_list("admin"), 100, metrics, self.WARNING_STATUS)
 
-    def test_swift_api_logs_errors_alarms(self):
+    @pytest.mark.skip(reason="No swift in grafana")
+    def test_swift_api_logs_errors_alarms(self): # There is no swift
         """Check that swift-logs-error and swift-api-http-error alarms
            work as expected.
 
@@ -341,6 +575,46 @@ class TestAlerts(base_test.BaseLMATest):
 
         controller.os.transport.exec_sync('initctl start swift-account')
 
+        @pytest.mark.fuel
+        @pytest.mark.xfail(raises=FuelEnvAtMK)
+        def test_swift_api_logs_errors_alarms_fuel(self):
+            """Check that swift-logs-error and swift-api-http-error alarms
+               work as expected.
+
+            Scenario:
+                1. Stop swift-account service on controller.
+                2. Run some swift stack list command repeatedly.
+                3. Check the last value of the swift-logs-error alarm
+                   in InfluxDB.
+                4. Check the last value of the swift-api-http-errors alarm
+                   in InfluxDB.
+                5. Start swift-account service on controller.
+
+            Duration 15m
+            """
+            if self.is_mk:
+                raise FuelEnvAtMK()
+            controller = self.cluster.get_random_controller()
+
+            def get_objects_list():
+                try:
+                    cmd = (". openrc "
+                           "&& export OS_AUTH_URL="
+                           "`(echo $OS_AUTH_URL | sed 's%:5000/%:5000/v2.0%')` "
+                           "&& swift list > /dev/null 2>&1")
+                    controller.os.transport.exec_sync(cmd)
+                except Exception:
+                    pass
+
+            controller.os.transport.exec_sync('initctl stop swift-account')
+
+            metrics = {"swift-api": "http_errors"}
+            self.verify_service_alarms(
+                get_objects_list, 10, metrics, self.WARNING_STATUS)
+
+            controller.os.transport.exec_sync('initctl start swift-account')
+
+    @pytest.mark.skip(reason="Destructive")
     def test_hdd_errors_alarms(self):
         """Check that hdd-errors-critical alarm works as expected.
 
@@ -377,6 +651,7 @@ class TestAlerts(base_test.BaseLMATest):
         self.influxdb_api.check_alarms(
             "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
+    @pytest.mark.mk
     def test_services_alarms(self):
         """Check sanity services alarms.
 
@@ -397,9 +672,11 @@ class TestAlerts(base_test.BaseLMATest):
             'libvirtd': 'libvirt_check',
             'rabbitmq-server': 'rabbitmq_check',
             'memcached': 'memcached_check',
-            'apache2': 'apache_check',
             'mysql': 'mysql_check'
         }
+        if not self.is_mk:
+            service_mapper['apache2'] = 'apache_check'
+
         status_operating = 1
         status_down = 0
 
@@ -408,8 +685,11 @@ class TestAlerts(base_test.BaseLMATest):
                 return self.cluster.get_random_controller()
             server = None
             for cluster_host in self.cluster.hosts:
-                res = cluster_host.os.transport.exec_sync(
-                    'pgrep {service}'.format(service=some_service))
+                try:
+                    res = cluster_host.os.transport.exec_sync(
+                        'pgrep {service}'.format(service=some_service))
+                except:
+                    continue
                 if res[0] == 0:
                     server = cluster_host
                     break
@@ -422,10 +702,14 @@ class TestAlerts(base_test.BaseLMATest):
             host.os.transport.exec_sync('service {} stop'.format(service))
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_down)
+            if service == 'rabbitmq-server':
+                host.os.transport.exec_sync(
+                    'rabbitmqctl force_boot'.format(service))
             host.os.transport.exec_sync('service {} start'.format(service))
             self.influxdb_api.check_status(
                 service_mapper[service], host.hostname, status_operating)
 
+    @pytest.mark.mk
     def test_rabbitmq_pacemaker_alarms(self):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
@@ -441,6 +725,97 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
+        controllers = self.cluster.get_controllers()
+        influxdb_api = self.influxdb_api
+        ctl1 = controllers[0]
+        ctl2 = controllers[1]
+        ctl3 = controllers[2]
+
+        ok_status = self.OKAY_STATUS
+
+        def check_ok_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=ok_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_ok_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        warn_status = self.WARNING_STATUS
+
+        def check_warn_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=warn_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_warn_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
+
+        crit_status = self.CRITICAL_STATUS
+
+        def check_crit_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=crit_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_crit_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
+        ctl3.os.transport.exec_sync('service rabbitmq-server stop')
+
+        down_status = self.DOWN_STATUS
+
+        def check_down_result():
+            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=down_status)
+            return len(influxdb_api.do_influxdb_query(
+                query=query).json()['results'][0])
+        utils.wait(check_down_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+        ctl1.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl1.os.transport.exec_sync('service rabbitmq-server start')
+
+        time.sleep(10)
+        ctl2.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl2.os.transport.exec_sync('service rabbitmq-server start')
+        time.sleep(10)
+        ctl3.os.transport.exec_sync('rabbitmqctl force_boot')
+        ctl3.os.transport.exec_sync('service rabbitmq-server start')
+
+        utils.wait(check_ok_result,
+                   timeout=60 * 5,
+                   interval=10,
+                   timeout_msg='No message')
+
+    @pytest.mark.fuel
+    @pytest.mark.xfail(raises=FuelEnvAtMK)
+    def test_rabbitmq_pacemaker_alarms_fuel(self):
+        """Check that rabbitmq-pacemaker-* alarms work as expected.
+
+        Scenario:
+            1. Stop one slave RabbitMQ instance.
+            2. Check that the status of the RabbitMQ cluster is warning.
+            3. Stop the second slave RabbitMQ instance.
+            4. Check that the status of the RabbitMQ cluster is critical.
+            5. Stop the master RabbitMQ instance.
+            6. Check that the status of the RabbitMQ cluster is down.
+            7. Clear the RabbitMQ resource.
+            8. Check that the status of the RabbitMQ cluster is okay.
+
+        Duration 10m
+        """
+        if self.is_mk:
+            raise FuelEnvAtMK()
         controllers = self.cluster.get_controllers()
         self.influxdb_api.check_alarms(
             'service',

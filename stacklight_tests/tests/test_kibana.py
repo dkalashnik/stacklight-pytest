@@ -1,4 +1,5 @@
 from __future__ import print_function
+import pytest
 
 from stacklight_tests.tests import base_test
 
@@ -13,6 +14,7 @@ class TestKibana(base_test.BaseLMATest):
 
         assert len(res['hits']['hits']) > 0
 
+    @pytest.mark.mk
     def test_networking_logs(self):
         """Check logs for networking programs.
         Scenario:
@@ -20,7 +22,7 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
+        services = {
             'haproxy',
             'ovsdb-server',
             'ovs-vswitchd',
@@ -30,9 +32,13 @@ class TestKibana(base_test.BaseLMATest):
             'openvswitch-agent',
             'neutron-openvswitch-agent',
             'server',
-        }:
+        }
+        if self.is_mk:
+            services.remove('ovs-vswitchd')
+        for program_name in services:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_swift_logs(self):
         """Check logs for swift.
         Scenario:
@@ -45,7 +51,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
-    # TODO(akostrikov): ask lma/mk team to produce more readable log names
+    @pytest.mark.mk
     def test_glance_logs(self):
         """Check logs for glance.
         Scenario:
@@ -53,14 +59,18 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
+        services = {
             'api',
             'cache',
             'glare',
             'registry',
-        }:
+        }
+        if self.is_mk:
+            services = {'glusterd'}
+        for program_name in services:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_keystone_logs(self):
         """Check logs for keystone.
         Scenario:
@@ -73,11 +83,12 @@ class TestKibana(base_test.BaseLMATest):
             'keystone-wsgi-main',
             'keystone-wsgi-main',
             'keystone-admin',
-            'keystone-manage',  # TODO(akostrikov) How it should be triggered
+            'keystone-manage',
             'keystone-public',
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_heat_logs(self):
         """Check logs for heat.
         Scenario:
@@ -93,6 +104,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_cinder_logs(self):
         """Check logs for cinder.
         Scenario:
@@ -109,6 +121,7 @@ class TestKibana(base_test.BaseLMATest):
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_nova_logs(self):
         """Check logs for nova.
         Scenario:
@@ -118,13 +131,14 @@ class TestKibana(base_test.BaseLMATest):
         """
         for program_name in {
             'nova-scheduler',
-            'libvirt',  # TODO(akostrikov) check on mk presence
+            'libvirt',
             'nova-api',
             'nova-compute',
             'nova-conductor',
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_messaging_logs(self):
         """Check logs for messaging.
         Scenario:
@@ -133,10 +147,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'rabbitmq',
+            'rabbitmq*',
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_horizon_logs(self):
         """Check logs for horizon.
         Scenario:
@@ -145,10 +160,11 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         for program_name in {
-            'horizon',
+            'horizon*',
         }:
             self.check_program(program_name)
 
+    @pytest.mark.mk
     def test_system_logs(self):
         """Check logs for linux system.
         Scenario:
@@ -156,11 +172,16 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 10m
         """
-        for program_name in {
+        services = {
             'cron',
             'kern',
             'syslog',
             'messages',
             'debug',
-        }:
+        }
+        if self.is_mk:
+            services.remove('kern')
+            services.remove('syslog')
+            services.remove('messages')
+        for program_name in services:
             self.check_program(program_name)
