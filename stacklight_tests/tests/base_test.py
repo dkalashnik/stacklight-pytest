@@ -38,7 +38,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             cls.cluster.add_host(
                 objects.Host(**node_args)
             )
-        cls.is_mk = cls.config.get("env", {}).get("type", "") == 'mk'
+        cls.is_mk = cls.env_type == 'mk'
 
         lma = cls.config.get("lma")
         cls.influxdb_api = influxdb_grafana_api.InfluxdbApi(

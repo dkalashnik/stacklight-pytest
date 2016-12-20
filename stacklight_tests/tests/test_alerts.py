@@ -2,8 +2,9 @@ from __future__ import print_function
 
 import contextlib
 import logging
-import pytest
 import time
+
+import pytest
 
 from stacklight_tests import custom_exceptions
 from stacklight_tests import utils
