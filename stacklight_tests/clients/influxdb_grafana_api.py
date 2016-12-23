@@ -14,13 +14,13 @@ class TestHTTPAdapter(requests.adapters.HTTPAdapter):
         self.poolmanager = poolmanager.PoolManager(assert_hostname=False)
 
 
-def check_http_get_response(url, expected_code=200, msg=None, **kwargs):
+def check_http_get_response(url, expected_codes=(200,), msg=None, **kwargs):
     """Perform a HTTP GET request and assert that the HTTP server replies with
     the expected code.
     :param url: the requested URL
     :type url: str
-    :param expected_code: the expected HTTP response code. Defaults to 200
-    :type expected_code: int
+    :param expected_codes: the expected HTTP response codes. Defaults to 200
+    :type expected_codes: tuple or list
     :param msg: the assertion message. Defaults to None
     :type msg: str
     :returns: HTTP response object
@@ -31,8 +31,9 @@ def check_http_get_response(url, expected_code=200, msg=None, **kwargs):
     cert = utils.get_fixture("rootCA.pem")
     msg = msg or "%s responded with {0}, expected {1}" % url
     response = session.get(url, verify=cert, **kwargs)
-    if expected_code is not None:
-        assert response.status_code == expected_code, msg
+    if expected_codes:
+        assert response.status_code in expected_codes, msg.format(
+            response.status_code, expected_codes)
     return response
 
 
@@ -47,10 +48,10 @@ class InfluxdbApi(object):
 
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
 
-    def do_influxdb_query(self, query, expected_code=200):
+    def do_influxdb_query(self, query, expected_codes=(200,)):
         return check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
-            expected_code=expected_code,
+            expected_codes=expected_codes,
             params={
                 "db": self.db_name,
                 "u": self.username,
@@ -304,15 +305,16 @@ class GrafanaApi(object):
         check_http_get_response(self.grafana_api_url.replace("/api", "/login"))
         check_http_get_response(self.get_api_url('/org'), auth=self.auth)
         check_http_get_response(self.get_api_url('/org'),
-                                auth=('agent', 'rogue'), expected_code=401)
+                                auth=('agent', 'rogue'), expected_codes=(401,))
         check_http_get_response(self.get_api_url('/org'),
-                                auth=('admin', 'rogue'), expected_code=401)
+                                auth=('admin', 'rogue'), expected_codes=(401,))
         check_http_get_response(self.get_api_url('/org'),
-                                auth=('agent', 'admin'), expected_code=401)
+                                auth=('agent', 'admin'), expected_codes=(401,))
 
     def _get_raw_dashboard(self, name):
         dashboard_url = self.get_api_url("/dashboards/db/{}".format(name))
-        response = check_http_get_response(dashboard_url, auth=self.auth)
+        response = check_http_get_response(
+            dashboard_url, expected_codes=[], auth=self.auth)
         if response.status_code == 200:
             return response
         elif response.status_code == 404:
