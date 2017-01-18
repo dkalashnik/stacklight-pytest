@@ -62,6 +62,11 @@ class MKConfig(object):
             "grafana_port": mon_params['grafana_port'],
             "grafana_username": mon_params['grafana_user'],
             "grafana_password": mon_params['grafana_password'],
+            "nagios_vip": mon_params['nagios_host'],
+            "nagios_port": 80,
+            "nagios_tls": False,
+            "nagios_username": mon_params['nagios_username'],
+            "nagios_password": mon_params['nagios_password'],
         }
         return lma_config
 
