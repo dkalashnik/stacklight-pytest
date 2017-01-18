@@ -70,7 +70,7 @@ You need to generate config from fuel to run tests now:
 or run:
    stl-tests gen-config-fuel
 
-if you have stacklight installed.
+if you have stacklight_tests installed.
 
 In case of using MK2x it worth generating config from mk env to run tests:
    PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/config/mk_config.py
@@ -78,7 +78,7 @@ In case of using MK2x it worth generating config from mk env to run tests:
 or run:
    stl-tests gen-config-mk
 
-if you have stacklight installed.
+if you have stacklight_tests installed.
 
 After file 'fixtures/config.yaml' is generated it is worth adding
 OpenStack clients endpoing hostname to /etc/hosts:
@@ -87,7 +87,7 @@ OpenStack clients endpoing hostname to /etc/hosts:
 or run:
    stl-tests setup-hosts
 
-if you have stacklight installed.
+if you have stacklight_tests installed.
 
 After adding endpoint hostname to hosts file you can run tests.
 

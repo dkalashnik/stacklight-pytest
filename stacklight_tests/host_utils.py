@@ -14,5 +14,6 @@ def main():
     script = utils.get_fixture("update_hosts.sh")
     subprocess.check_call(["sudo", script, ip, hostname])
 
+
 if __name__ == '__main__':
     main()

@@ -1,3 +1,5 @@
+import pytest
+
 from stacklight_tests.tests import base_test
 
 
@@ -150,6 +152,7 @@ class TestSmoke(base_test.BaseLMATest):
             assert len(self.influxdb_api.do_influxdb_query(
                 query).json()['results'][0])
 
+    @pytest.mark.check_env("is_fuel")
     def test_openstack_services_alarms_presented(self):
         """Verify that alarms for ''openstack_<service>_api'' were
         created in InfluxDB

@@ -565,14 +565,16 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.network.add_interface_router(
             router['id'], {'subnet_id': subnet['id']})
 
-        # server = self.create_basic_server(net=net, sec_groups=[sec_group.name])
+        # server = self.create_basic_server(
+        #     net=net, sec_groups=[sec_group.name])
         # floating_ips_pool = self.os_clients.compute.floating_ip_pools.list()
         # floating_ip = self.os_clients.compute.floating_ips.create(
         #     pool=floating_ips_pool[0].name)
         # self.os_clients.compute.servers.add_floating_ip(server, floating_ip)
 
         # Clean
-        # self.os_clients.compute.servers.remove_floating_ip(server, floating_ip)
+        # self.os_clients.compute.servers.remove_floating_ip(
+        #     server, floating_ip)
         # self.os_clients.compute.floating_ips.delete(floating_ip)
         # self.os_clients.compute.servers.delete(server)
         self.os_clients.network.remove_gateway_router(router["id"])
