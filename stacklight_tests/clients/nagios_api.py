@@ -50,6 +50,20 @@ class NagiosApi(object):
     def hosts_page(self):
         return self.get_page("Hosts")
 
+    def get_all_nodes_statuses(self):
+        nodes = {}
+        node_name_index = 1
+        status_index = 2
+        for row in self.hosts_page.main_table.rows:
+            try:
+                curr_node_name = row.get_cell(node_name_index).text_
+                status = row.get_cell(status_index).text_
+                nodes[curr_node_name] = status
+            except custom_exceptions.NotFound:
+                # In case on empty row, because there can be rows without info
+                continue
+        return nodes
+
     def get_all_services_statuses(self):
         services = collections.defaultdict(dict)
         node_name_index = 1
