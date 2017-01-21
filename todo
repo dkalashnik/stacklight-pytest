@@ -1,19 +1,14 @@
 TODO
 ----
 
-* Create setup.py with all needed stuff to be possible to install with pip install git+...
-* Add precommit hook to repo with pep8 check  (  Medium  )
-* Add pre-test configurations for cluster, two ways:    (  High  )
-  * Add creating of networks, images, etc.. in corresponding test setup (Resource manager class?)
-  * Add global setup
 * Implement Destructive actions context manager to prevent fail of other test on destructive actions ( High )
 * Tag tests with "Fuel" or/and "TCPMK" labels to separate scopes for different systems   (  High  )
+  - Auto-detection added in functional tests and marked in alarms tests
 * Add to README cmdlines to run tests against both systems   (  Medium  )
 * Split grafana dashboard test to per-dashboard tests  (  Medium  )
 * Split kibana/elastic tests to per-service tests  (  Medium  )
 * Add grafana utils to analyze empty panels and generate fixtures (not pyTest fixtures, just support data) for tests  (  Medium  )
 * Add to grafana tests fixtures processing to be possible to produce pass/fail result  (  Low  )
-* Add lxml-based engine to work with nagios   (  Low  )
 * Add flapping-detector for nagios/alarms tests   (  extraLow  )   Depends on:
   * Discover a way to prioritize cases run. E.g. flapping tests should be the first  (  extraLow  )
-
+* Append Base clients and Api classes with logging (grafana, kibana, nagios APIs, OpenStack clients) (Medium)
