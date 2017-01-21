@@ -681,6 +681,8 @@ class TestFunctional(base_test.BaseLMATest):
             if service_names[3]:
                 self.influxdb_api.check_count_of_haproxy_backends(
                     service_names[3], expected_count=down_backends_in_haproxy)
+            self.nagios_api.wait_service_state_on_nagios(
+                {service_names[2]: new_state})
             msg = (
                 "Mail check failed for service: {} "
                 "with new status: {}.".format(service_names[2], new_state))
@@ -792,11 +794,21 @@ class TestFunctional(base_test.BaseLMATest):
             mysql_fs, disk_usage_percent, mysql_fs_alarm_test_file)
 
         self.influxdb_api.check_cluster_status("mysql", self.OKAY_STATUS)
+        self.nagios_api.check_service_state_on_nagios(
+            {nagios_service_name: "OK"})
+        self.nagios_api.wait_service_state_on_nagios(
+            {"mysql-nodes.mysql-fs": nagios_state},
+            [controller_nodes[0].hostname])
 
         controller_nodes[1].os.fill_up_filesystem(
             mysql_fs, disk_usage_percent, mysql_fs_alarm_test_file)
 
         self.influxdb_api.check_cluster_status("mysql", influx_state)
+        self.nagios_api.wait_service_state_on_nagios(
+            {nagios_service_name: nagios_state})
+        self.nagios_api.wait_service_state_on_nagios(
+            {"mysql-nodes.mysql-fs": nagios_state},
+            [controller_nodes[1].hostname])
         utils.wait(
             lambda: (
                 any(t_node.os.check_local_mail(nagios_service_name,
