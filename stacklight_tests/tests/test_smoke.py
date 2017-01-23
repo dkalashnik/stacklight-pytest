@@ -1,3 +1,5 @@
+import pytest
+
 from stacklight_tests.tests import base_test
 
 
@@ -150,6 +152,7 @@ class TestSmoke(base_test.BaseLMATest):
             assert len(self.influxdb_api.do_influxdb_query(
                 query).json()['results'][0])
 
+    @pytest.mark.check_env("is_fuel")
     def test_openstack_services_alarms_presented(self):
         """Verify that alarms for ''openstack_<service>_api'' were
         created in InfluxDB
@@ -191,3 +194,10 @@ class TestSmoke(base_test.BaseLMATest):
             query = query.format(table=table, service=service)
             assert len(self.influxdb_api.do_influxdb_query(
                 query).json()['results'][0])
+
+    def test_nagios_hosts_are_available_by_ssh(self):
+        nodes_statuses = self.nagios_api.get_all_nodes_statuses()
+        nodes = [host.hostname for host in self.cluster.hosts]
+        for node in nodes:
+            assert node in nodes_statuses.keys()
+        assert not any([value == "DOWN" for value in nodes_statuses.values()])

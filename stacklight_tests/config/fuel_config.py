@@ -119,6 +119,23 @@ class FuelConfig(object):
             "grafana_password":
                 clean_password(self.get_hiera_value(
                     monitoring_ssh, "lma::grafana::mysql::admin_password")),
+            "nagios_vip":
+                self.get_hiera_value(
+                    monitoring_ssh,
+                    "lma::infrastructure_alerting::nagios_ui")["vip"],
+            "nagios_port":
+                self.get_hiera_value(
+                    monitoring_ssh,
+                    "lma::infrastructure_alerting::nagios_ui")["apache_port"],
+            "nagios_tls":
+                self.get_hiera_value(
+                    monitoring_ssh,
+                    "lma::infrastructure_alerting::nagios_ui")["tls_enabled"],
+            "nagios_username": "nagiosadmin",
+            "nagios_password":
+                clean_password(self.get_hiera_value(
+                    monitoring_ssh,
+                    "lma::infrastructure_alerting::authnz")["password"]),
 
         }
         return lma_config
@@ -141,6 +158,7 @@ def main():
     FuelConfig(settings.ENV_FUEL_IP,
                settings.ENV_FUEL_LOGIN,
                settings.ENV_FUEL_PASSWORD).main()
+
 
 if __name__ == '__main__':
     main()

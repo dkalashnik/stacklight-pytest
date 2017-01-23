@@ -1,40 +1,10 @@
 import re
 import urlparse
 
-import requests
-from requests.packages.urllib3 import poolmanager
-
 from stacklight_tests import utils
 
 
-class TestHTTPAdapter(requests.adapters.HTTPAdapter):
-    """Custom transport adapter to disable host checking in https requests."""
-
-    def init_poolmanager(self, connections, maxsize, block=False):
-        self.poolmanager = poolmanager.PoolManager(assert_hostname=False)
-
-
-def check_http_get_response(url, expected_codes=(200,), msg=None, **kwargs):
-    """Perform a HTTP GET request and assert that the HTTP server replies with
-    the expected code.
-    :param url: the requested URL
-    :type url: str
-    :param expected_codes: the expected HTTP response codes. Defaults to 200
-    :type expected_codes: tuple or list
-    :param msg: the assertion message. Defaults to None
-    :type msg: str
-    :returns: HTTP response object
-    :rtype: requests.Response
-    """
-    session = requests.Session()
-    session.mount("https://", TestHTTPAdapter())
-    cert = utils.get_fixture("rootCA.pem")
-    msg = msg or "%s responded with {0}, expected {1}" % url
-    response = session.get(url, verify=cert, **kwargs)
-    if expected_codes:
-        assert response.status_code in expected_codes, msg.format(
-            response.status_code, expected_codes)
-    return response
+check_http_get_response = utils.check_http_get_response
 
 
 class InfluxdbApi(object):

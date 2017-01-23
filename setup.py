@@ -17,6 +17,7 @@ def get_requirements_list(requirements):
     all_requirements.append("python-fuelclient>=9.0.0,<10.0.0")  # Apache-2.0
     return all_requirements
 
+
 setup(
     name='stacklight_tests',
     version=1.0,

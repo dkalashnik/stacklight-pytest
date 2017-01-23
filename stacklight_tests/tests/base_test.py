@@ -3,6 +3,7 @@ import logging
 
 from stacklight_tests.clients import es_kibana_api
 from stacklight_tests.clients import influxdb_grafana_api
+from stacklight_tests.clients import nagios_api
 from stacklight_tests.clients.openstack import client_manager as os_clients
 from stacklight_tests import objects
 from stacklight_tests import utils
@@ -60,6 +61,14 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
         cls.es_kibana_api = es_kibana_api.EsKibanaApi(
             host=lma["elasticsearch_vip"],
             port=lma["elasticsearch_port"],
+        )
+
+        cls.nagios_api = nagios_api.NagiosApi(
+            address=lma["nagios_vip"],
+            port=lma["nagios_port"],
+            username=lma["nagios_username"],
+            password=lma["nagios_password"],
+            tls_enabled=lma["nagios_tls"],
         )
 
         # NOTE(rpromyshlennikov): It may need refactor,

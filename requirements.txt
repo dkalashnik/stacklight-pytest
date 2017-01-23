@@ -1,4 +1,6 @@
+cssselect==1.0.1 # BSD License
 elasticsearch<=2.4.0  # Apache-2.0
+lxml>=3.7.2 # BSD License
 paramiko>=2.0 # LGPLv2.1+
 pytest>=3.0.4  # MIT
 python-ceilometerclient>=2.5.0  # Apache-2.0
