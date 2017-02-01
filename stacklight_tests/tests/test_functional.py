@@ -678,6 +678,10 @@ class TestFunctional(base_test.BaseLMATest):
             for toolchain_node in toolchain_nodes:
                 toolchain_node.os.clear_local_mail()
             for node in controller_nodes:
+                if action == "stop":
+                    self.destructive_actions.append(
+                        lambda: node.os.manage_service(service_names[0],
+                                                       "start"))
                 node.os.manage_service(service_names[0], action)
             self.influxdb_api.check_cluster_status(
                 service_names[1], service_state_in_influx)
