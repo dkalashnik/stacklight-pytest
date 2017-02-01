@@ -197,7 +197,10 @@ class TestSmoke(base_test.BaseLMATest):
 
     def test_nagios_hosts_are_available_by_ssh(self):
         nodes_statuses = self.nagios_api.get_all_nodes_statuses()
-        nodes = [host.hostname for host in self.cluster.hosts]
-        for node in nodes:
-            assert node in nodes_statuses.keys()
+        if self.is_mk:
+            hostnames = {host.fqdn for host in self.cluster.hosts}
+        else:
+            hostnames = {host.hostname for host in self.cluster.hosts}
+        absent_hostnames = hostnames - set(nodes_statuses.keys())
+        assert not absent_hostnames
         assert not any([value == "DOWN" for value in nodes_statuses.values()])
