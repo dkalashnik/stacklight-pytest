@@ -191,7 +191,10 @@ class TestFunctional(base_test.BaseLMATest):
         """
         time_started = "{}s".format(int(time.time()))
         check_metrics = self.influxdb_api.get_instance_creation_time_metrics
-        metrics = check_metrics(time_started)
+        try:
+            metrics = check_metrics(time_started)
+        except KeyError:
+            metrics = []
 
         new_instance_count = 3
         new_servers = []
