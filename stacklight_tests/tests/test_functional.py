@@ -222,17 +222,26 @@ class TestFunctional(base_test.BaseLMATest):
         Duration 5m
         """
         output = self.es_kibana_api.query_elasticsearch(
-            index_type="log", query_filter="programname:nova*", size=500)
+            query_filter="programname:nova*", size=50)
         assert output['hits']['total'] != 0, "Indexes don't contain Nova logs"
         controllers_hostnames = [controller.hostname for controller
                                  in self.cluster.filter_by_role("controller")]
         computes_hostnames = [compute.hostname for compute
                               in self.cluster.filter_by_role("compute")]
         target_hostnames = set(controllers_hostnames + computes_hostnames)
-        actual_hostnames = set([hit['_source']['Hostname']
-                                for hit in output['hits']['hits']])
+        actual_hostnames = set()
+        for host in target_hostnames:
+            host_presence = self.es_kibana_api.query_elasticsearch(
+                query_filter="programname:nova* AND Hostname:{}".format(host),
+                size=50)
+            if host_presence['hits']['total'] > 0:
+                actual_hostnames.add(host)
         assert target_hostnames == actual_hostnames, (
             "There are insufficient entries in elasticsearch")
+        assert self.es_kibana_api.query_elasticsearch(
+            query_filter="programname:nova* AND Hostname:mon01",
+            size=50)['hits']['total'] == 0, (
+            "There are logs collected from irrelevant host")
 
     def test_nova_notifications_toolchain(self):
         """Check that Nova notifications are present in Elasticsearch
@@ -331,10 +340,10 @@ class TestFunctional(base_test.BaseLMATest):
             lambda: (instance.id not in self.os_clients.compute.servers.list())
         )
         self.es_kibana_api.check_notifications(
-            instance_event_types, index_type="notification",
+            instance_event_types,
             query_filter='instance_id:"{}"'.format(instance.id), size=500)
         self.es_kibana_api.check_notifications(
-            nova_event_types, index_type="notification",
+            nova_event_types,
             query_filter="Logger:nova", size=500)
 
     def test_glance_notifications_toolchain(self):
@@ -371,7 +380,7 @@ class TestFunctional(base_test.BaseLMATest):
         )
 
         self.es_kibana_api.check_notifications(
-            glance_event_types, index_type="notification",
+            glance_event_types,
             query_filter="Logger:glance", size=500)
 
     def test_keystone_notifications_toolchain(self):
@@ -413,7 +422,7 @@ class TestFunctional(base_test.BaseLMATest):
         client.tenants.delete(tenant)
 
         self.es_kibana_api.check_notifications(
-            keystone_event_types, index_type="notification",
+            keystone_event_types,
             query_filter="Logger:keystone", size=500)
 
     def test_heat_notifications_toolchain(self):
@@ -525,7 +534,7 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.compute.flavors.delete(extra_large_flavor.id)
 
         self.es_kibana_api.check_notifications(
-            heat_event_types, index_type="notification",
+            heat_event_types,
             query_filter="Logger:heat", size=500)
 
     def test_neutron_notifications_toolchain(self):
@@ -589,7 +598,7 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.compute.security_groups.delete(sec_group)
 
         self.es_kibana_api.check_notifications(
-            neutron_event_types, index_type="notification",
+            neutron_event_types,
             query_filter="Logger:neutron", size=500)
 
     # This test is suitable only for fuel env,
@@ -624,7 +633,7 @@ class TestFunctional(base_test.BaseLMATest):
             lambda: (volume.id not in cinder.volumes.list())
         )
         self.es_kibana_api.check_notifications(
-            cinder_event_types, index_type="notification",
+            cinder_event_types,
             query_filter='volume_id:"{}"'.format(volume.id), size=500)
 
     @pytest.mark.parametrize(
