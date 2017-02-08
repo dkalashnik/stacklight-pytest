@@ -94,6 +94,17 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             domain=auth["access"].get("domain", "Default"),
         )
 
+    def setup_method(self):
+        self.destructive_actions = []
+
+    def teardown_method(self):
+        for recovery_method in self.destructive_actions:
+            try:
+                recovery_method()
+            except Exception as e:
+                logger.error("Recovery failed: {} with exception: {}".format(
+                    recovery_method, e))
+
     def check_filesystem_alarms(self, node, filesystem, source,
                                 filename, node_role, alarm_type="node"):
         check_alarm = partial(self.influxdb_api.check_alarms,

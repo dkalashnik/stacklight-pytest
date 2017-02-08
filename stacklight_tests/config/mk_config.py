@@ -35,7 +35,7 @@ class MKConfig(object):
             node_params = node["parameters"]
             nodes_config.append({
                 "address": node_params['_param']['cluster_local_address'],
-                "hostname": node_params['linux']['network']['hostname'],
+                "hostname": node_params['linux']['network']['fqdn'],
                 "username": "root",
                 "private_key": private_key,
                 "roles": [self.get_role(node)]

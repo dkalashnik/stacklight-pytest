@@ -83,6 +83,7 @@ class Host(object):
         self.address = address
         self.roles = roles or []
         self.exec_command = self.os.exec_command
+        self.fqdn = kwargs.get("hostname") or self.long_hostname
 
     @property
     def hostname(self):

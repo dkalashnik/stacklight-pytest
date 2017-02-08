@@ -81,7 +81,7 @@ or run:
 if you have stacklight_tests installed.
 
 After file 'fixtures/config.yaml' is generated it is worth adding
-OpenStack clients endpoing hostname to /etc/hosts:
+OpenStack clients endpoint hostname to /etc/hosts:
    sudo PYTHONPATH=".:$PYTHONPATH" python stacklight_tests/host_utils.py
 
 or run:
