@@ -1,5 +1,3 @@
-import pytest
-
 from stacklight_tests.tests import base_test
 
 
@@ -73,10 +71,8 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 5m
         """
-        table = "openstack_check_local_api"
-        services = (
+        services = {
             "cinder-api",
-            "cinder-v2-api",
             "glance-api",
             "heat-api",
             "heat-cfn-api",
@@ -84,17 +80,20 @@ class TestSmoke(base_test.BaseLMATest):
             "neutron-api",
             "nova-api",
             "swift-api",
-            "swift-s3-api",
-        )
+        }
+        if self.is_mk:
+            services.remove("swift-api")
         query = ("select last(value) "
-                 "from {table} "
+                 "from openstack_check_local_api "
                  "where time >= now() - 1m and service = '{service}'")
+        absent_services = set()
         for service in services:
-            query = query.format(table=table, service=service)
-            assert len(self.influxdb_api.do_influxdb_query(
-                query).json()['results'][0])
+            result = self.influxdb_api.do_influxdb_query(
+                query.format(service=service)).json()['results'][0]
+            if "series" not in result:
+                absent_services.add(service)
+        assert not absent_services
 
-    @pytest.mark.check_env("is_fuel")
     def test_openstack_services_alarms_presented(self):
         """Verify that alarms for ''openstack_<service>_api'' were
         created in InfluxDB
@@ -114,10 +113,8 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 5m
         """
-        table = "service_status"
-        services = (
+        services = {
             "cinder-api-endpoint",
-            "cinder-v2-api-endpoint",
             "glance-api-endpoint",
             "heat-api-endpoint",
             "heat-cfn-api-endpoint",
@@ -125,17 +122,26 @@ class TestSmoke(base_test.BaseLMATest):
             "neutron-api-endpoint",
             "nova-api-endpoint",
             "swift-api-endpoint",
-            "swift-s3-api-endpoint",
-        )
-        query = ("select last(value) "
-                 "from {table} "
-                 "where time >= now() - 1m "
-                 "and service = '{service}' "
-                 "and source='endpoint'")
+        }
+        if not self.is_mk:
+            query = ("select last(value) "
+                     "from service_status "
+                     "where time >= now() - 1m "
+                     "and service = '{service}' "
+                     "and source='endpoint'")
+        else:
+            query = ("select last(value) "
+                     "from status "
+                     "where time >= now() - 1m "
+                     "and service = '{service}' ")
+            services.remove("swift-api-endpoint")
+        absent_services = set()
         for service in services:
-            query = query.format(table=table, service=service)
-            assert len(self.influxdb_api.do_influxdb_query(
-                query).json()['results'][0])
+            result = self.influxdb_api.do_influxdb_query(
+                query.format(service=service)).json()['results'][0]
+            if "series" not in result:
+                absent_services.add(service)
+        assert not absent_services
 
     def test_nagios_hosts_are_available_by_ssh(self):
         nodes_statuses = self.nagios_api.get_all_nodes_statuses()

@@ -47,11 +47,11 @@ class TestKibana(base_test.BaseLMATest):
         }
         if self.is_mk:
             entities = {
-                'Logger:openstack.neutron AND programname:ovs-vswitchd',
-                'Logger:openstack.neutron AND programname:ovsdb-server',
-                'Logger:openstack.neutron AND programname:ovs-ctl',
+                'Logger:ovs AND programname:ovs-vswitchd',
+                'Logger:ovs AND programname:ovsdb-server',
             }
-        assert not self.get_absent_programs_for_group(entities)
+        assert not self.get_absent_programs_for_group(entities,
+                                                      time_range="now-12h")
 
     def test_networking_logs(self):
         """Check logs for networking programs.
@@ -221,7 +221,6 @@ class TestKibana(base_test.BaseLMATest):
             entities = {
                 'Logger:system.auth',
                 'Logger:system.kern',
-                'Logger:system.mail',
                 'Logger:system.syslog',
 
             }

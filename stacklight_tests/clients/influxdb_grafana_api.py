@@ -1,3 +1,4 @@
+import logging
 import re
 import urlparse
 
@@ -5,6 +6,8 @@ from stacklight_tests import utils
 
 
 check_http_get_response = utils.check_http_get_response
+
+logger = logging.getLogger(__name__)
 
 
 class InfluxdbApi(object):
@@ -19,7 +22,8 @@ class InfluxdbApi(object):
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
 
     def do_influxdb_query(self, query, expected_codes=(200,)):
-        return check_http_get_response(
+        logger.debug('Query is: %s', query)
+        response = check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
             expected_codes=expected_codes,
             params={
@@ -27,6 +31,8 @@ class InfluxdbApi(object):
                 "u": self.username,
                 "p": self.password,
                 "q": query})
+        logger.debug(response.json())
+        return response
 
     def check_status(self, service_type, hostname, value,
                      time_interval="now() - 10s"):
@@ -102,17 +108,19 @@ class InfluxdbApi(object):
             "where time >= {interval}".format(interval=interval))
         result = self.do_influxdb_query(query=query).json()["results"][0]
 
-        if result:
+        if result and 'series' in result:
             return result["series"][0]["values"]
         return []
 
     def _check_influx_query_last_value(self, query, expected_value):
         def check_status():
+            logger.debug("Awaiting value: {}".format(expected_value))
             output = self.do_influxdb_query(query)
             result = output.json()['results'][0]
-            if not result:
+            if not result or 'series' not in result:
                 return False
             return result['series'][0]['values'][0][1] == expected_value
+
         msg = "There is no such value: {} in results of query: {}".format(
             expected_value, query
         )

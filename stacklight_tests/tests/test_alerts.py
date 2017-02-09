@@ -7,8 +7,8 @@ import time
 import pytest
 
 from stacklight_tests import custom_exceptions
-from stacklight_tests import utils
 from stacklight_tests.tests import base_test
+from stacklight_tests import utils
 
 
 logger = logging.getLogger(__name__)
@@ -65,7 +65,6 @@ class TestAlerts(base_test.BaseLMATest):
         self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
                                            self.RABBITMQ_MEMORY_CRITICAL_VALUE)
 
-    @pytest.mark.skip(reason="Destructive")
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
            expected.
@@ -107,14 +106,12 @@ class TestAlerts(base_test.BaseLMATest):
             "where table_schema = '{db_name}';"
             "\" | mysql {creds} ")
 
-        # TODO(rpromyshlennikov): use "check_call" instead of exec_command
-        exit_code, _, _ = controller.os.transport.exec_sync(
+        controller.os.check_call(
             cmd.format(db_name=db_name, method='upper', creds=creds))
         try:
             yield
         finally:
-            # TODO(rpromyshlennikov): use "check_call" instead of exec_command
-            exit_code, _, _ = controller.os.transport.exec_sync(
+            controller.os.check_call(
                 cmd.format(db_name=db_name, method='lower', creds=creds))
 
     @pytest.mark.mk_nova
@@ -625,7 +622,7 @@ class TestAlerts(base_test.BaseLMATest):
                 try:
                     res = cluster_host.os.transport.exec_sync(
                         'pgrep {service}'.format(service=some_service))
-                except:
+                except Exception:
                     continue
                 if res[0] == 0:
                     server = cluster_host

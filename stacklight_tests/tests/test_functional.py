@@ -191,10 +191,7 @@ class TestFunctional(base_test.BaseLMATest):
         """
         time_started = "{}s".format(int(time.time()))
         check_metrics = self.influxdb_api.get_instance_creation_time_metrics
-        try:
-            metrics = check_metrics(time_started)
-        except KeyError:
-            metrics = []
+        metrics = check_metrics(time_started)
 
         new_instance_count = 3
         new_servers = []
@@ -337,7 +334,7 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.compute.servers.delete(instance)
         logger.info("Check that the instance was deleted")
         utils.wait(
-            lambda: (instance.id not in self.os_clients.compute.servers.list())
+            lambda: instance.id not in self.os_clients.compute.servers.list()
         )
         self.es_kibana_api.check_notifications(
             instance_event_types,
@@ -629,9 +626,7 @@ class TestFunctional(base_test.BaseLMATest):
             self.os_clients.volume.volumes, volume.id, "available")
         logger.info("Delete the volume")
         cinder.volumes.delete(volume)
-        utils.wait(
-            lambda: (volume.id not in cinder.volumes.list())
-        )
+        utils.wait(lambda: volume.id not in cinder.volumes.list())
         self.es_kibana_api.check_notifications(
             cinder_event_types,
             query_filter='volume_id:"{}"'.format(volume.id), size=500)
@@ -707,6 +702,7 @@ class TestFunctional(base_test.BaseLMATest):
                     any(t_node.os.check_local_mail(service_names[2], new_state)
                         for t_node in toolchain_nodes)),
                 timeout=5 * 60, interval=15, timeout_msg=msg)
+            self.destructive_actions = []
 
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}

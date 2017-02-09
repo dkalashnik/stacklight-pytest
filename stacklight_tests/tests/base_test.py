@@ -31,6 +31,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
         cls.config = utils.load_config()
         # TODO(rpromyshlennikov): make types as enum?
         cls.env_type = cls.config.get("env", {}).get("type", "")
+        cls.is_mk = cls.env_type == 'mk'
 
         nodes = cls.config.get("nodes")
         cls.cluster = objects.Cluster()
@@ -39,7 +40,6 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             cls.cluster.add_host(
                 objects.Host(**node_args)
             )
-        cls.is_mk = cls.env_type == 'mk'
 
         lma = cls.config.get("lma")
         cls.influxdb_api = influxdb_grafana_api.InfluxdbApi(
