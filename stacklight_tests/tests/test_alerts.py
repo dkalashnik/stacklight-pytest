@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import contextlib
+import functools
 import logging
 import time
 
@@ -12,6 +13,21 @@ from stacklight_tests import utils
 
 
 logger = logging.getLogger(__name__)
+
+
+def determinate_services():
+    env_type = utils.load_config().get("env", {}).get("type", "")
+    services_checks = {
+        'libvirtd': 'libvirt_check',
+        'rabbitmq-server': 'rabbitmq_check',
+        'memcached': 'memcached_check',
+        'mysql': 'mysql_check'
+    }
+    if not env_type == 'mk':
+        services_checks['apache2'] = 'apache_check'
+
+    return {service: (service, check)
+            for service, check in services_checks.items()}
 
 
 class TestAlerts(base_test.BaseLMATest):
@@ -80,8 +96,10 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         compute = self.cluster.get_random_compute()
+        alarm_name = (
+            "root-fs" if not self.is_mk else "linux_system_root_fs")
         self.check_filesystem_alarms(
-            compute, "/$", "root-fs", "/bigfile", "compute")
+            compute, "/$", alarm_name, "/bigfile", "compute")
 
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):
@@ -586,7 +604,11 @@ class TestAlerts(base_test.BaseLMATest):
         self.influxdb_api.check_alarms(
             "node", "compute", "hdd-errors", hostname, self.CRITICAL_STATUS)
 
-    def test_services_alarms(self):
+    @pytest.mark.parametrize(
+        "entities",
+        determinate_services().values(),
+        ids=determinate_services().keys())
+    def test_services_alarms(self, entities):
         """Check sanity services alarms.
 
         Scenario:
@@ -595,22 +617,14 @@ class TestAlerts(base_test.BaseLMATest):
                  * libvirt
                  * rabbitmq-server
                  * memcached
-                 * apache2
+                 * apache2 (for fuel only)
                  * mysql
                and stop the service.
-            2. Check that the corresponding <service-name>-check alarm
-               is triggered.
-            3. Start the service resource and check that value is operating.
+            2. Check that <service-name>-check value is operating.
+            3. Stop service and check that the corresponding
+               <service-name>-check alarm is triggered.
+            4. Start the service resource and check that value is operating.
         """
-        service_mapper = {
-            'libvirtd': 'libvirt_check',
-            'rabbitmq-server': 'rabbitmq_check',
-            'memcached': 'memcached_check',
-            'mysql': 'mysql_check'
-        }
-        if not self.is_mk:
-            service_mapper['apache2'] = 'apache_check'
-
         status_operating = 1
         status_down = 0
 
@@ -631,17 +645,21 @@ class TestAlerts(base_test.BaseLMATest):
                 raise custom_exceptions.NoValidHost('')
             return server
 
-        for service in service_mapper.keys():
-            host = find_server(service)
-            host.os.transport.exec_sync('service {} stop'.format(service))
-            self.influxdb_api.check_status(
-                service_mapper[service], host.hostname, status_down)
-            if service == 'rabbitmq-server':
-                host.os.transport.exec_sync(
-                    'rabbitmqctl force_boot'.format(service))
-            host.os.transport.exec_sync('service {} start'.format(service))
-            self.influxdb_api.check_status(
-                service_mapper[service], host.hostname, status_operating)
+        service, check = entities
+        host = find_server(service)
+        self.influxdb_api.check_status(check, host.hostname, status_operating)
+        self.destructive_actions.append(
+            lambda: host.os.manage_service(service, "start"))
+        if service == 'rabbitmq-server':
+            self.destructive_actions.append(
+                lambda: host.os.check_call('rabbitmqctl force_boot'))
+        host.os.manage_service(service, "stop")
+        self.influxdb_api.check_status(check, host.hostname, status_down)
+        if service == 'rabbitmq-server':
+            host.os.check_call('rabbitmqctl force_boot')
+        host.os.manage_service(service, "start")
+        self.influxdb_api.check_status(check, host.hostname, status_operating)
+        self.destructive_actions = []
 
     @pytest.mark.check_env('is_mk')
     def test_rabbitmq_pacemaker_alarms(self):
@@ -659,77 +677,32 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controllers = self.cluster.get_controllers()
-        influxdb_api = self.influxdb_api
-        ctl1 = controllers[0]
-        ctl2 = controllers[1]
-        ctl3 = controllers[2]
+        check_status = functools.partial(
+            self.influxdb_api.check_cluster_status,
+            name="rabbitmq", interval="10s")
 
-        ok_status = self.OKAY_STATUS
+        controllers = self.cluster.get_controllers()[:3]
+        statuses = (
+            self.WARNING_STATUS, self.CRITICAL_STATUS, self.DOWN_STATUS)
+        service = 'rabbitmq-server'
 
-        def check_ok_result():
-            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=ok_status)
-            return len(influxdb_api.do_influxdb_query(
-                query=query).json()['results'][0])
-        utils.wait(check_ok_result,
-                   timeout=60 * 5,
-                   interval=10,
-                   timeout_msg='No message')
+        check_status(expected_status=self.OKAY_STATUS)
 
-        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
-        warn_status = self.WARNING_STATUS
+        for ctl, status in zip(controllers, statuses):
+            self.destructive_actions.append(
+                lambda: ctl.os.manage_service(service, 'start'))
+            self.destructive_actions.append(
+                lambda: ctl.os.check_call('rabbitmqctl force_boot'))
+            ctl.os.manage_service(service, 'stop')
+            check_status(expected_status=status)
 
-        def check_warn_result():
-            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=warn_status)
-            return len(influxdb_api.do_influxdb_query(
-                query=query).json()['results'][0])
-        utils.wait(check_warn_result,
-                   timeout=60 * 5,
-                   interval=10,
-                   timeout_msg='No message')
+        for ctl in controllers:
+            ctl.os.transport.check_call('rabbitmqctl force_boot')
+            ctl.os.manage_service(service, 'start')
+            time.sleep(10)
 
-        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
-        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
-
-        crit_status = self.CRITICAL_STATUS
-
-        def check_crit_result():
-            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=crit_status)
-            return len(influxdb_api.do_influxdb_query(
-                query=query).json()['results'][0])
-        utils.wait(check_crit_result,
-                   timeout=60 * 5,
-                   interval=10,
-                   timeout_msg='No message')
-
-        ctl1.os.transport.exec_sync('service rabbitmq-server stop')
-        ctl2.os.transport.exec_sync('service rabbitmq-server stop')
-        ctl3.os.transport.exec_sync('service rabbitmq-server stop')
-
-        down_status = self.DOWN_STATUS
-
-        def check_down_result():
-            query = 'SELECT last("value") FROM "cluster_status" WHERE "cluster_name" = \'rabbitmq\' and time >= now() - 10s and value = {value} ;'.format(value=down_status)
-            return len(influxdb_api.do_influxdb_query(
-                query=query).json()['results'][0])
-        utils.wait(check_down_result,
-                   timeout=60 * 5,
-                   interval=10,
-                   timeout_msg='No message')
-        ctl1.os.transport.exec_sync('rabbitmqctl force_boot')
-        ctl1.os.transport.exec_sync('service rabbitmq-server start')
-
-        time.sleep(10)
-        ctl2.os.transport.exec_sync('rabbitmqctl force_boot')
-        ctl2.os.transport.exec_sync('service rabbitmq-server start')
-        time.sleep(10)
-        ctl3.os.transport.exec_sync('rabbitmqctl force_boot')
-        ctl3.os.transport.exec_sync('service rabbitmq-server start')
-
-        utils.wait(check_ok_result,
-                   timeout=60 * 5,
-                   interval=10,
-                   timeout_msg='No message')
+        check_status(expected_status=self.OKAY_STATUS)
+        self.destructive_actions = []
 
     @pytest.mark.check_env('is_fuel')
     def test_rabbitmq_pacemaker_alarms_fuel(self):
@@ -747,41 +720,28 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controllers = self.cluster.get_controllers()
-        self.influxdb_api.check_alarms(
+        check_alarms = functools.partial(
+            self.influxdb_api.check_alarms,
             'service',
             'rabbitmq-cluster',
             None,
-            None,
-            self.OKAY_STATUS)
+            None)
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.WARNING_STATUS)
+        controllers = self.cluster.get_controllers()[:3]
+        statuses = (
+            self.WARNING_STATUS, self.CRITICAL_STATUS, self.DOWN_STATUS)
+        service = 'rabbitmq-server'
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.CRITICAL_STATUS)
+        check_alarms(value=self.OKAY_STATUS)
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server stop')
-        controllers[2].os.transport.exec_sync('service rabbitmq-server stop')
-        self.influxdb_api.check_alarms(
-            'service', 'rabbitmq-cluster',
-            None,
-            None, self.DOWN_STATUS)  # TODO: fails here
+        for ctl, status in zip(controllers, statuses):
+            self.destructive_actions.append(
+                lambda: ctl.os.manage_service(service, 'start'))
+            ctl.os.manage_service(service, 'stop')
+            check_alarms(value=status)
 
-        controllers[0].os.transport.exec_sync('service rabbitmq-server start')
-        controllers[1].os.transport.exec_sync('service rabbitmq-server start')
-        controllers[2].os.transport.exec_sync('service rabbitmq-server start')
-        self.influxdb_api.check_alarms(
-            'service',
-            'rabbitmq-cluster',
-            None,
-            None,
-            self.OKAY_STATUS)
+        for ctl in controllers:
+            ctl.os.manage_service(service, 'start')
+
+        check_alarms(value=self.OKAY_STATUS)
+        self.destructive_actions = []

@@ -107,11 +107,16 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
     def check_filesystem_alarms(self, node, filesystem, source,
                                 filename, node_role, alarm_type="node"):
-        check_alarm = partial(self.influxdb_api.check_alarms,
-                              alarm_type=alarm_type,
-                              filter_value=node_role,
-                              source=source,
-                              hostname=node.hostname)
+        if not self.is_mk:
+            check_alarm = partial(self.influxdb_api.check_alarms,
+                                  alarm_type=alarm_type,
+                                  filter_value=node_role,
+                                  source=source,
+                                  hostname=node.hostname)
+        else:
+            def check_alarm(value):
+                return self.influxdb_api.check_mk_alarm(
+                    member=source, warning_level=value, hostname=node.hostname)
 
         check_alarm(value=self.OKAY_STATUS)
 
