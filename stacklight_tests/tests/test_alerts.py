@@ -5,6 +5,7 @@ import functools
 import logging
 import time
 
+import pika
 import pytest
 
 from stacklight_tests import custom_exceptions
@@ -646,3 +647,25 @@ class TestAlerts(base_test.BaseLMATest):
 
         check_alarms(value=self.OKAY_STATUS)
         self.destructive_actions = []
+
+    @pytest.mark.check_env('is_mk')
+    def test_rabbit_queue(self):
+        # NOTE(rpromyshlennikov): Test marked only for run on mk env,
+        # because it can't load Rabbit on Fuel Lab
+        self.influxdb_api.check_mk_alarm(
+            'rabbitmq_server_queue', self.OKAY_STATUS)
+        controller = self.cluster.get_random_controller()
+        connection = pika.BlockingConnection(
+            pika.ConnectionParameters(host=controller.hostname))
+        channel = connection.channel()
+
+        channel.queue_declare(queue='test_rabbit_queue')
+        for i in range(500):
+            channel.basic_publish(exchange='',
+                                  routing_key='test_rabbit_queue',
+                                  body='test_rabbit_queue')
+        connection.close()
+        self.influxdb_api.check_mk_alarm(
+            'rabbitmq_server_queue', self.WARNING_STATUS)
+        self.influxdb_api.check_mk_alarm(
+            'rabbitmq_server_queue', self.OKAY_STATUS)
