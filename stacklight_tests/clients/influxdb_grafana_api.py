@@ -122,26 +122,28 @@ class InfluxdbApi(object):
 
         self._check_influx_query_last_value(query, expected_count)
 
-    def check_mk_alarm(self, member, warning_level,
-                       hostname=None, time_range="now() - 10s"):
+    def check_mk_alarm(self, member, warning_level, hostname=None,
+                       time_range="now() - 10s", table="status", reraise=True):
         Result = collections.namedtuple(
             "Result", field_names=("status", "host", "value"))
         filters = ["member = '{}'".format(member),
                    "time >= {}".format(time_range)]
         if hostname is not None:
             filters.append("hostname = '{}'".format(hostname))
-        query = ("SELECT {{}} FROM status "
-                 "WHERE {}".format(" and ".join(filters)))
+        query = ("SELECT {{}} FROM {table} "
+                 "WHERE {filters}".format(table=table,
+                                          filters=" and ".join(filters)))
         try:
             self._check_influx_query_last_value(query.format("last(value)"),
                                                 warning_level)
-
             result = self.do_influxdb_query(query.format(
                 "hostname, last(value)")).json()['results'][0]
             host, value = result['series'][0]['values'][0][1:]
             return Result(True, host, value)
-        except custom_exceptions.TimeoutError:
-            return Result(False, None, None)
+        except custom_exceptions.TimeoutError as e:
+            if not reraise:
+                return Result(False, None, None)
+            raise custom_exceptions.TimeoutError(e)
 
     def get_environment_name(self):
         query = "show tag values from cpu_idle with key = environment_label"
