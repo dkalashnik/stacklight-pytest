@@ -177,12 +177,16 @@ class TestKibana(base_test.BaseLMATest):
         Duration 10m
         """
         entities = {
-            'Logger:openstack.nova and programname:nova-api',
-            'Logger:openstack.nova and programname:nova-compute',
-            'Logger:openstack.nova and programname:nova-conductor',
-            'Logger:openstack.nova and programname:nova-scheduler',
+            'Logger:openstack.nova AND programname:nova-api',
+            'Logger:openstack.nova AND programname:nova-compute',
+            'Logger:openstack.nova AND programname:nova-scheduler',
         }
-        assert not self.get_absent_programs_for_group(entities)
+
+        absent_logs = self.get_absent_programs_for_group(entities)
+        conductor = 'Logger:openstack.nova AND programname:nova-conductor'
+        if not self.log_is_presented(conductor, time_range="now-1d"):
+            absent_logs.add(conductor)
+        assert not absent_logs
 
     def test_messaging_logs(self):
         """Check logs for messaging.
@@ -235,3 +239,47 @@ class TestKibana(base_test.BaseLMATest):
                 'Logger:system.syslog',
             }
         assert not self.get_absent_programs_for_group(entities)
+
+    @pytest.mark.check_env("is_mk")
+    def test_zookeeper_logs(self):
+        """Check logs for zookeeper.
+        Scenario:
+            1. Run elasticsearch query to validate presence of a
+            zookeeper logs.
+
+        Duration 10m
+        """
+        assert self.log_is_presented(
+            'Logger:contrail.zookeeper AND programname:zookeeper')
+
+    @pytest.mark.check_env("is_mk")
+    def test_cassandra_logs(self):
+        """Check logs for cassandra.
+        Scenario:
+            1. Run elasticsearch query to validate presence of a
+            cassandra logs.
+
+        Duration 10m
+        """
+        entities = {
+            'Logger:contrail.cassandra.system AND programname:cassandra',
+            'Logger:contrail.cassandra.status AND programname:cassandra',
+        }
+        absent_logs = self.get_absent_programs_for_group(entities)
+        assert not absent_logs
+
+    @pytest.mark.check_env("is_mk")
+    def test_contrail_logs(self):
+        """Check logs for contrail.
+        Scenario:
+            1. Run elasticsearch query to validate presence of a
+            contrail logs.
+
+        Duration 10m
+        """
+        entities = {
+            'Logger:contrail.alarm-gen*',
+            'Logger:contrail.discovery*',
+        }
+        absent_logs = self.get_absent_programs_for_group(entities)
+        assert not absent_logs
