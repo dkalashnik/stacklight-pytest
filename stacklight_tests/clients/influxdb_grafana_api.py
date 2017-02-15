@@ -68,9 +68,12 @@ class InfluxdbApi(object):
             filters=" and ".join(filters))
         self._check_influx_query_last_value(query, value)
 
-    def get_rabbitmq_memory_usage(self, interval="now() - 5m"):
-        query = ("select last(value) from rabbitmq_used_memory "
-                 "where time >= {interval}".format(interval=interval))
+    def get_rabbitmq_memory_usage(self, host, interval="now() - 5m"):
+        query = (
+            "select last(value) from rabbitmq_used_memory "
+            "where hostname = '{host}' and time >= {interval}".format(
+                host=host.hostname, interval=interval)
+        )
         result = self.do_influxdb_query(query=query).json()
         return result["results"][0]["series"][0]["values"][0][1]
 

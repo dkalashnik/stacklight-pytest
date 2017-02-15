@@ -15,6 +15,22 @@ from stacklight_tests import utils
 
 logger = logging.getLogger(__name__)
 
+
+rabbitmq_alarms = {
+    'memory': {
+        'warning': (base_test.BaseLMATest.RABBITMQ_MEMORY_WARNING_VALUE,
+                    base_test.BaseLMATest.WARNING_STATUS),
+        'critical': (base_test.BaseLMATest.RABBITMQ_MEMORY_CRITICAL_VALUE,
+                     base_test.BaseLMATest.CRITICAL_STATUS)
+    },
+    'disk': {
+        'warning': (base_test.BaseLMATest.RABBITMQ_DISK_WARNING_PERCENT,
+                    base_test.BaseLMATest.WARNING_STATUS),
+        'critical': (base_test.BaseLMATest.RABBITMQ_DISK_CRITICAL_PERCENT,
+                     base_test.BaseLMATest.CRITICAL_STATUS),
+    }
+}
+
 log_http_errors_entities = {
     'nova':
         ('nova', 'compute.servers.list', 'nova_logs', 'nova_api_http_errors'),
@@ -54,8 +70,10 @@ def determinate_services():
 
 
 class TestAlerts(base_test.BaseLMATest):
-    @pytest.mark.mk_in_progress
-    def test_check_rabbitmq_disk_alarm(self):
+    @pytest.mark.parametrize(
+        "levels",
+        (rabbitmq_alarms["disk"].values()), ids=rabbitmq_alarms["disk"].keys())
+    def test_check_rabbitmq_disk_alarm(self, levels):
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
 
@@ -73,13 +91,45 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
-        self.check_rabbit_mq_disk_alarms(controller, self.WARNING_STATUS,
-                                         self.RABBITMQ_DISK_WARNING_PERCENT)
-        self.check_rabbit_mq_disk_alarms(controller, self.CRITICAL_STATUS,
-                                         self.RABBITMQ_DISK_CRITICAL_PERCENT)
+        percent, status = levels
 
-    @pytest.mark.mk_in_progress
-    def test_check_rabbitmq_memory_alarm(self):
+        if not self.is_mk:
+            volume = "/dev/dm-"
+            source = "disk"
+        else:
+            volume = "/dev/vda"
+            source = "rabbitmq_server_disk"
+        check_alarm = self.get_generic_alarm_checker(
+            controller, source, "rabbitmq-cluster", alarm_type="service")
+
+        check_alarm(value=self.OKAY_STATUS)
+
+        default_value = controller.check_call(
+            "rabbitmqctl environment | grep disk_free_limit | "
+            "sed -r 's/}.+//' | sed 's|.*,||'")[1]
+
+        self.destructive_actions.append(lambda: controller.check_call(
+            "rabbitmqctl set_disk_free_limit {}".format(default_value)))
+        cmd = ("rabbitmqctl set_disk_free_limit $"
+               "(df | grep {volume} | "
+               "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
+               "{percent} / 100) - $3))}}')")
+        controller.check_call(
+            cmd.format(volume=volume, percent=percent))
+
+        check_alarm(value=status)
+
+        controller.check_call(
+            "rabbitmqctl set_disk_free_limit {}".format(default_value))
+
+        check_alarm(value=self.OKAY_STATUS)
+        self.destructive_actions = []
+
+    @pytest.mark.parametrize(
+        "levels",
+        (rabbitmq_alarms["memory"].values()),
+        ids=rabbitmq_alarms["memory"].keys())
+    def test_check_rabbitmq_memory_alarm(self, levels):
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
 
@@ -99,10 +149,35 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         controller = self.cluster.get_random_controller()
-        self.check_rabbit_mq_memory_alarms(controller, self.WARNING_STATUS,
-                                           self.RABBITMQ_MEMORY_WARNING_VALUE)
-        self.check_rabbit_mq_memory_alarms(controller, self.CRITICAL_STATUS,
-                                           self.RABBITMQ_MEMORY_CRITICAL_VALUE)
+        ratio, status = levels
+
+        source = "memory" if not self.is_mk else "rabbitmq_server_memory"
+        check_alarm = self.get_generic_alarm_checker(
+            controller, source, "rabbitmq-cluster", alarm_type="service")
+
+        check_alarm(value=self.OKAY_STATUS)
+        default_value = controller.check_call(
+            "rabbitmqctl environment | grep vm_memory_high_watermark, | "
+            "sed -r 's/}.+//' | sed 's|.*,||'")[1]
+        mem_usage = self.influxdb_api.get_rabbitmq_memory_usage(controller)
+
+        cmd = (
+            'rabbitmqctl '
+            'set_vm_memory_high_watermark absolute "{memory}"'.format(
+                memory=int(mem_usage * ratio),
+            ))
+        self.destructive_actions.append(
+            lambda: controller.os.check_call(
+                "rabbitmqctl set_vm_memory_high_watermark {}".format(
+                    default_value)))
+        controller.check_call(cmd)
+        check_alarm(value=status)
+
+        controller.os.check_call(
+            "rabbitmqctl set_vm_memory_high_watermark {}".format(default_value)
+        )
+        check_alarm(value=self.OKAY_STATUS)
+        self.destructive_actions = []
 
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
@@ -121,8 +196,29 @@ class TestAlerts(base_test.BaseLMATest):
         compute = self.cluster.get_random_compute()
         alarm_name = (
             "root-fs" if not self.is_mk else "linux_system_root_fs")
-        self.check_filesystem_alarms(
-            compute, "/$", alarm_name, "/bigfile", "compute")
+        filename = "/bigfile"
+        filesystem = "/$"
+
+        check_alarm = self.get_generic_alarm_checker(
+            node=compute, source=alarm_name, node_role="compute")
+
+        check_alarm(value=self.OKAY_STATUS)
+
+        compute.os.fill_up_filesystem(
+            filesystem, self.WARNING_PERCENT, filename)
+        logger.info("Checking {}-warning alarm".format(alarm_name))
+        check_alarm(value=self.WARNING_STATUS)
+
+        compute.os.clean_filesystem(filename)
+        check_alarm(value=self.OKAY_STATUS)
+
+        compute.os.fill_up_filesystem(
+            filesystem, self.CRITICAL_PERCENT, filename)
+        logger.info("Checking {}-critical alarm".format(alarm_name))
+        check_alarm(value=self.CRITICAL_STATUS)
+
+        compute.os.clean_filesystem(filename)
+        check_alarm(value=self.OKAY_STATUS)
 
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):

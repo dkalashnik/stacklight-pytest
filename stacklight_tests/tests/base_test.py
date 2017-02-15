@@ -23,8 +23,8 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
     RABBITMQ_DISK_WARNING_PERCENT = 99.99
     RABBITMQ_DISK_CRITICAL_PERCENT = 100
-    RABBITMQ_MEMORY_WARNING_VALUE = 1.01
-    RABBITMQ_MEMORY_CRITICAL_VALUE = 1.0001
+    RABBITMQ_MEMORY_WARNING_VALUE = 1.1
+    RABBITMQ_MEMORY_CRITICAL_VALUE = 1.0
 
     @classmethod
     def setup_class(cls):
@@ -105,8 +105,8 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                 logger.error("Recovery failed: {} with exception: {}".format(
                     recovery_method, e))
 
-    def check_filesystem_alarms(self, node, filesystem, source,
-                                filename, node_role, alarm_type="node"):
+    def get_generic_alarm_checker(self, node, source, node_role,
+                                  alarm_type="node"):
         if not self.is_mk:
             check_alarm = partial(self.influxdb_api.check_alarms,
                                   alarm_type=alarm_type,
@@ -117,89 +117,12 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             def check_alarm(value):
                 return self.influxdb_api.check_mk_alarm(
                     member=source, warning_level=value, hostname=node.hostname)
-
-        check_alarm(value=self.OKAY_STATUS)
-
-        node.os.fill_up_filesystem(filesystem, self.WARNING_PERCENT, filename)
-        logger.info("Checking {}-warning alarm".format(source))
-        check_alarm(value=self.WARNING_STATUS)
-
-        node.os.clean_filesystem(filename)
-        check_alarm(value=self.OKAY_STATUS)
-
-        node.os.fill_up_filesystem(filesystem, self.CRITICAL_PERCENT, filename)
-        logger.info("Checking {}-critical alarm".format(source))
-        check_alarm(value=self.CRITICAL_STATUS)
-
-        node.os.clean_filesystem(filename)
-        check_alarm(value=self.OKAY_STATUS)
-
-    def check_rabbit_mq_disk_alarms(self, controller, status, percent):
-        check_alarm = partial(self.influxdb_api.check_alarms,
-                              alarm_type="service",
-                              filter_value="rabbitmq-cluster",
-                              source="disk",
-                              hostname=controller.hostname)
-        check_alarm(value=self.OKAY_STATUS)
-
-        default_value = controller.exec_command(
-            "rabbitmqctl environment | grep disk_free_limit | "
-            "sed -r 's/}.+//' | sed 's|.*,||'")
-
-        cmd = ("rabbitmqctl -n rabbit@messaging-node-3 set_disk_free_limit $"
-               "(df | grep /dev/dm- | "
-               "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
-               "{percent} / 100) - $3))}}')")
-        controller.exec_command(cmd.format(percent=percent))
-        check_alarm(value=status)
-
-        controller.exec_command(
-            "rabbitmqctl set_disk_free_limit {}".format(default_value))
-        check_alarm(value=self.OKAY_STATUS)
-
-    def check_rabbit_mq_memory_alarms(self, controller, status, value):
-        check_alarm = partial(self.influxdb_api.check_alarms,
-                              alarm_type="service",
-                              filter_value="rabbitmq-cluster",
-                              source="memory",
-                              hostname=controller.hostname)
-        check_alarm(value=self.OKAY_STATUS)
-
-        # default_value = controller.exec_command(  # DISK_FREE_LIMIT? o_O
-        #     "rabbitmqctl -n rabbit@messaging-node-3 environment | "
-        #     "grep disk_free_limit | "
-        #     "sed -r 's/}.+//' | sed 's|.*,||'")
-        mem_usage = self.influxdb_api.get_rabbitmq_memory_usage()
-
-        cmd = (
-            "rabbitmqctl -n rabbit@messaging-node-3 "
-            "set_vm_memory_high_watermark absolute \"{memory}\"".format(
-                memory=int(mem_usage * value)))
-        print(cmd)
-        controller.exec_command(cmd)
-        check_alarm(value=status)
-
-        self.set_rabbitmq_memory_watermark(controller, '0.4')
-        check_alarm(value=self.OKAY_STATUS)
-
-    def set_rabbitmq_memory_watermark(self, controller, limit, timeout=5 * 60):
-        def check_result():
-            exit_code, _, _ = controller.os.transport.exec_sync(
-                "rabbitmqctl set_vm_memory_high_watermark {}".format(limit))
-            if exit_code == 0:
-                return True
-            else:
-                return False
-
-        msg = "Failed to set vm_memory_high_watermark to {}".format(limit)
-        utils.wait(check_result, timeout=timeout, interval=10, timeout_msg=msg)
+        return check_alarm
 
     def verify_service_alarms(self, trigger_fn, trigger_count,
                               metrics, status):
         for _ in range(trigger_count):
             trigger_fn()
-        print('check metric {0}'.format(metrics.items()))
-        print('status: {0}'.format(status))
         for service, source in metrics.items():
             self.influxdb_api.check_alarms(
                 alarm_type="service",
