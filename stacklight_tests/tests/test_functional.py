@@ -708,9 +708,7 @@ class TestFunctional(base_test.BaseLMATest):
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
         name_in_influx, name_in_alerting, services = components
 
-        toolchain_role = "infrastructure_alerting"
-        if self.env_type == "mk":
-            toolchain_role = "monitoring"
+        toolchain_role = self.get_lma_role_name()
         toolchain_nodes = self.cluster.filter_by_role(toolchain_role)
 
         controller_nodes = self.cluster.filter_by_role(

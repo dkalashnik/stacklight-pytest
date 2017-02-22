@@ -279,3 +279,7 @@ class GeneralActionsClient(object):
                 return True
         except custom_exceptions.SSHCommandFailed:
             return False
+
+    def check_package_installed(self, name):
+        """Check that package is installed on host."""
+        return self.check_call("dpkg-query -l {}".format(name))

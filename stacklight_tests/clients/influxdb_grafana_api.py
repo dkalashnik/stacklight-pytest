@@ -78,6 +78,11 @@ class InfluxdbApi(object):
         logger.debug(response.json())
         return response
 
+    def check_influxdb_online(self):
+        measurements = self.get_all_measurements()
+        env_name = self.get_environment_name()
+        return measurements, env_name
+
     def check_status(self, service_type, hostname, value,
                      time_interval="now() - 30s"):
         filters = [

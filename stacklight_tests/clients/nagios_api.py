@@ -29,7 +29,10 @@ class NagiosApi(object):
         self.username = username
         self.password = password
         self.scheme = "https" if tls_enabled else "http"
-        self.nagios_url = (
+        self.nagios_url = self.format_url()
+
+    def format_url(self):
+        return (
             "{scheme}://{user}:{password}@{address}:{port}"
             "/cgi-bin/nagios3/".format(
                 scheme=self.scheme,

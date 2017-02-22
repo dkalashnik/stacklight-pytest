@@ -130,3 +130,26 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                 source=source,
                 hostname=None,
                 value=status)
+
+    def get_lma_role_name(self):
+        """Return LMA node role on different environments."""
+        toolchain_role = "infrastructure_alerting"
+        if self.env_type == "mk":
+            toolchain_role = "monitoring"
+        return toolchain_role
+
+    def check_service_installed(self, name, role=None):
+        """Checks that service is installed on nodes with provided role."""
+        if role is None:
+            role = self.get_lma_role_name()
+        nodes = self.cluster.filter_by_role(role)
+        for node in nodes:
+            node.os.check_package_installed(name)
+
+    def check_service_running(self, name, role=None):
+        """Checks that service is running on nodes with provided role."""
+        if role is None:
+            role = self.get_lma_role_name()
+        nodes = self.cluster.filter_by_role(role)
+        for node in nodes:
+            node.os.manage_service(name, "status")
