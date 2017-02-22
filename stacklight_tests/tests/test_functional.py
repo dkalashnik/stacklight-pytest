@@ -838,32 +838,22 @@ class TestFunctional(base_test.BaseLMATest):
                     for t_node in toolchain_nodes)),
             timeout=5 * 60, interval=15)
 
-    def test_grafana_dashboard_panel_queries_toolchain(self):
+    @pytest.mark.parametrize(
+        "dashboard_name",
+        base_test.influxdb_grafana_api.get_all_grafana_dashboards_names())
+    def test_grafana_dashboard_panel_queries(self, dashboard_name):
         """Verify that the panels on dashboards show up in the Grafana UI.
 
         Scenario:
-            1. Check queries for all panels on all dashboards in Grafana.
+            1. Check queries for all panels of given dashboard in Grafana.
 
-        Duration 20m
+        Duration 5m
         """
         self.grafana_api.check_grafana_online()
-        dashboards = self.grafana_api.get_all_dashboards()
-        ok_queries = {}
-        failed_queries = {}
-        no_table_queries = {}
-        for dashboard in dashboards:
-            if dashboard.name.startswith("ceph"):
-                # NOTE(rpromyshlennikov): ceph is disabled in most cases
-                continue
-            result = dashboard.classify_all_dashboard_queries()
-            ok_queries[dashboard.name] = result[0]
-            no_table_queries[dashboard.name] = result[1]
-            failed_queries[dashboard.name] = result[2]
+        dashboard = self.grafana_api.get_dashboard(dashboard_name)
+        result = dashboard.classify_all_dashboard_queries()
+        ok_queries, no_table_queries, failed_queries = result
 
-        broken_panels = [
-            items
-            for result in no_table_queries.values()
-            if result
-            for items in result.items()]
-        assert not len(broken_panels), (
-            [broken_panel[0] for broken_panel in broken_panels])
+        logger.debug(no_table_queries)
+        logger.debug(failed_queries)
+        assert ok_queries and not no_table_queries and not failed_queries

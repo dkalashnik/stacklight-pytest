@@ -12,6 +12,27 @@ check_http_get_response = utils.check_http_get_response
 logger = logging.getLogger(__name__)
 
 
+def get_all_grafana_dashboards_names():
+    env_type = utils.load_config().get("env", {}).get("type", "")
+    dashboard_names = {
+        "Apache", "LMA self-monitoring",
+        "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
+        "Hypervisor", "InfluxDB", "Keystone", "Main",
+        "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
+    }
+    if env_type == "mk":
+        # Add new dashboards for mk
+        dashboard_names.update({
+            "Cassandra", "GlusterFS", "Grafana", "Kibana", "Nginx",
+            "OpenContrail"})
+        # Remove not actual dashboards for mk
+        dashboard_names.difference_update(
+            {"Apache", "LMA self-monitoring"})
+
+    return {panel_name.lower().replace(" ", "-")
+            for panel_name in dashboard_names}
+
+
 class InfluxdbApi(object):
     def __init__(self, address, port, username, password, db_name):
         super(InfluxdbApi, self).__init__()
@@ -172,7 +193,6 @@ class Dashboard(object):
             "$environment": self._influxdb_api.get_environment_name()
         }
         self.templates = self.get_templates()
-        self.panels = self.get_panel_queries()
         self.available_measurements = self._influxdb_api.get_all_measurements()
 
     def __repr__(self):
@@ -207,9 +227,6 @@ class Dashboard(object):
         for item in queries_queue:
             compiled_tmp = self._compile_query(
                 template_queries[item], templates)
-            if "ceph" in compiled_tmp:
-                # NOTE(rpromyshlennikov): ceph is disabled in most cases
-                continue
             try:
                 result = self._influxdb_api.do_influxdb_query(
                     compiled_tmp).json()["results"][0]["series"][0]["values"]
@@ -253,9 +270,6 @@ class Dashboard(object):
         no_measurements_queries = {}
         for key, (raw_query, query) in self.get_panel_queries().items():
             try:
-                if "ceph" in query:
-                    # NOTE(rpromyshlennikov): ceph is disabled in most cases
-                    continue
                 query_table = self._parse_measurement_from_query(query)
                 if query_table and (
                         query_table not in self.available_measurements):
