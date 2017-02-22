@@ -119,7 +119,7 @@ class TestSmoke(base_test.BaseLMATest):
                 * RabbitMQ
                 * System
 
-        Duration 5m
+        Duration 1m
         """
         self.grafana_api.check_grafana_online()
         dashboard_names = (
@@ -134,7 +134,7 @@ class TestSmoke(base_test.BaseLMATest):
 
     def test_openstack_service_metrics_presented(self):
         """Verify the new metrics '<openstack._service>.api were
-        created in InfluxDB
+        created in InfluxDB.
 
         Scenario:
             1. Check "cinder-api" metric in InfluxDB
@@ -149,7 +149,7 @@ class TestSmoke(base_test.BaseLMATest):
                 * "swift-api"
                 * "swift-s3-api"
 
-        Duration 5m
+        Duration 1m
         """
         services = {
             "cinder-api",
@@ -176,7 +176,7 @@ class TestSmoke(base_test.BaseLMATest):
 
     def test_openstack_services_alarms_presented(self):
         """Verify that alarms for ''openstack_<service>_api'' were
-        created in InfluxDB
+        created in InfluxDB.
 
         Scenario:
             1. Check "cinder-api-endpoint" alarm in InfluxDB
@@ -191,7 +191,7 @@ class TestSmoke(base_test.BaseLMATest):
                 * "swift-api-endpoint"
                 * "swift-s3-api-endpoint"
 
-        Duration 5m
+        Duration 1m
         """
         services = {
             "cinder-api-endpoint",
@@ -224,6 +224,14 @@ class TestSmoke(base_test.BaseLMATest):
         assert not absent_services
 
     def test_nagios_hosts_are_available_by_ssh(self):
+        """Check that all nodes are tracked by Nagios via ssh
+
+        Scenario:
+            1. Open hosts page and get tracked hosts
+            2. Ensure that all nodes are in "UP" status
+
+        Duration 1m
+        """
         nodes_statuses = self.nagios_api.get_all_nodes_statuses()
         if self.is_mk:
             hostnames = {host.fqdn for host in self.cluster.hosts}
