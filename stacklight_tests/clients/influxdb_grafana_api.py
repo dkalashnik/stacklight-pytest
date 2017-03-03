@@ -1,10 +1,15 @@
+import collections
+import logging
 import re
 import urlparse
 
+from stacklight_tests import custom_exceptions
 from stacklight_tests import utils
 
 
 check_http_get_response = utils.check_http_get_response
+
+logger = logging.getLogger(__name__)
 
 
 class InfluxdbApi(object):
@@ -19,7 +24,8 @@ class InfluxdbApi(object):
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
 
     def do_influxdb_query(self, query, expected_codes=(200,)):
-        return check_http_get_response(
+        logger.debug('Query is: %s', query)
+        response = check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
             expected_codes=expected_codes,
             params={
@@ -27,30 +33,21 @@ class InfluxdbApi(object):
                 "u": self.username,
                 "p": self.password,
                 "q": query})
+        logger.debug(response.json())
+        return response
 
     def check_status(self, service_type, hostname, value,
-                     time_interval="now() - 10s"):
+                     time_interval="now() - 30s"):
         filters = [
             "time >= {}".format(time_interval),
-            "value = {}".format(value)
         ]
         if hostname is not None:
             filters.append("hostname = '{}'".format(hostname))
 
-        query = "select last(value) from {alarm_type} where {filters}".format(
-            alarm_type=service_type,
+        query = "select last(value) from {table} where {filters}".format(
+            table=service_type,
             filters=" and ".join(filters))
-
-        def check_result():
-            return len(self.do_influxdb_query(
-                query=query).json()['results'][0])
-
-        msg = ("Alarm of type: {}: hostname: {}, "
-               "value: {} wasn't triggered".format(service_type,
-                                                   hostname,
-                                                   value))
-
-        utils.wait(check_result, timeout=60 * 5, interval=10, timeout_msg=msg)
+        self._check_influx_query_last_value(query, value)
 
     def check_alarms(self, alarm_type, filter_value, source, hostname,
                      value, time_interval="now() - 5m"):
@@ -60,7 +57,6 @@ class InfluxdbApi(object):
         filters = [
             "time >= {}".format(time_interval),
             "{} = '{}'".format(filter_by, filter_value),
-            "value = {}".format(value)
         ]
         if source is not None:
             filters.append("source = '{}'".format(source))
@@ -70,20 +66,14 @@ class InfluxdbApi(object):
         query = "select last(value) from {select_from} where {filters}".format(
             select_from="{}_status".format(alarm_type),
             filters=" and ".join(filters))
+        self._check_influx_query_last_value(query, value)
 
-        def check_result():
-            return len(self.do_influxdb_query(
-                query=query).json()['results'][0])
-
-        msg = ("Alarm of type: {}: entity: {}, source:{}, hostname: {}, "
-               "value: {} wasn't triggered".format(alarm_type, filter_value,
-                                                   source, hostname, value))
-
-        utils.wait(check_result, timeout=60 * 5, interval=10, timeout_msg=msg)
-
-    def get_rabbitmq_memory_usage(self, interval="now() - 5m"):
-        query = ("select last(value) from rabbitmq_used_memory "
-                 "where time >= {interval}".format(interval=interval))
+    def get_rabbitmq_memory_usage(self, host, interval="now() - 5m"):
+        query = (
+            "select last(value) from rabbitmq_used_memory "
+            "where hostname = '{host}' and time >= {interval}".format(
+                host=host.hostname, interval=interval)
+        )
         result = self.do_influxdb_query(query=query).json()
         return result["results"][0]["series"][0]["values"][0][1]
 
@@ -102,17 +92,19 @@ class InfluxdbApi(object):
             "where time >= {interval}".format(interval=interval))
         result = self.do_influxdb_query(query=query).json()["results"][0]
 
-        if result:
+        if result and 'series' in result:
             return result["series"][0]["values"]
         return []
 
     def _check_influx_query_last_value(self, query, expected_value):
         def check_status():
+            logger.debug("Awaiting value: {}".format(expected_value))
             output = self.do_influxdb_query(query)
             result = output.json()['results'][0]
-            if not result:
+            if not result or 'series' not in result:
                 return False
             return result['series'][0]['values'][0][1] == expected_value
+
         msg = "There is no such value: {} in results of query: {}".format(
             expected_value, query
         )
@@ -132,6 +124,29 @@ class InfluxdbApi(object):
                  "time > now() - {2}".format(service, node_state, interval))
 
         self._check_influx_query_last_value(query, expected_count)
+
+    def check_mk_alarm(self, member, warning_level, hostname=None,
+                       time_range="now() - 10s", table="status", reraise=True):
+        Result = collections.namedtuple(
+            "Result", field_names=("status", "host", "value"))
+        filters = ["member = '{}'".format(member),
+                   "time >= {}".format(time_range)]
+        if hostname is not None:
+            filters.append("hostname = '{}'".format(hostname))
+        query = ("SELECT {{}} FROM {table} "
+                 "WHERE {filters}".format(table=table,
+                                          filters=" and ".join(filters)))
+        try:
+            self._check_influx_query_last_value(query.format("last(value)"),
+                                                warning_level)
+            result = self.do_influxdb_query(query.format(
+                "hostname, last(value)")).json()['results'][0]
+            host, value = result['series'][0]['values'][0][1:]
+            return Result(True, host, value)
+        except custom_exceptions.TimeoutError as e:
+            if not reraise:
+                return Result(False, None, None)
+            raise custom_exceptions.TimeoutError(e)
 
     def get_environment_name(self):
         query = "show tag values from cpu_idle with key = environment_label"

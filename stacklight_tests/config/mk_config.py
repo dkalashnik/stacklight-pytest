@@ -18,14 +18,19 @@ class MKConfig(object):
     def check_class(self, class_name, node):
         return any([class_name in c for c in node["classes"]])
 
-    def get_role(self, node):
-        if self.check_class("openstack.control", node):
-            return "controller"
-        if self.check_class("openstack.compute", node):
-            return "compute"
-        if self.check_class("stacklight.server", node):
-            return "monitoring"
-        return "not defined"
+    def get_roles(self, node):
+        roles_mapping = {
+            "openstack.control": "controller",
+            "openstack.compute": "compute",
+            "stacklight.server": "monitoring",
+            "galera.master": "galera.master",
+            "galera.slave": "galera.slave",
+
+        }
+        roles = [role for role_name, role in roles_mapping.items()
+                 if self.check_class(role_name, node)]
+
+        return roles or ["not defined"]
 
     def generate_nodes(self):
         nodes_config = []
@@ -38,14 +43,14 @@ class MKConfig(object):
                 "hostname": node_params['linux']['network']['fqdn'],
                 "username": "root",
                 "private_key": private_key,
-                "roles": [self.get_role(node)]
+                "roles": self.get_roles(node)
             })
 
         return nodes_config
 
     def generate_lma(self):
         monitoring_node = filter(
-            lambda x: any(["stacklight.server" in c for c in x["classes"]]),
+            lambda x: self.check_class("stacklight.server", x),
             self.nodes.values()
         )[0]
         mon_params = monitoring_node['parameters']['_param']
@@ -75,17 +80,20 @@ class MKConfig(object):
             lambda x: self.check_class("openstack.control", x),
             self.nodes.values()
         )[0]
-        ctl_params = controller_node['parameters']['keystone']
+        ctl_params = controller_node['parameters']
+        auth_params = ctl_params['keystone']
 
         openstack_auth_config = {
             "access": {
-                "user": ctl_params['server']['admin_name'],
-                "password": ctl_params['server']['admin_password'],
-                "tenant": ctl_params['server']['admin_tenant'],
+                "user": auth_params['server']['admin_name'],
+                "password": auth_params['server']['admin_password'],
+                "tenant": auth_params['server']['admin_tenant'],
             },
 
-            "management_vip": ctl_params['server']['bind']['private_address'],
-            "public_vip": ctl_params['server']['bind']['public_address'],
+            "management_vip": auth_params['server']['bind']['private_address'],
+            "public_vip": auth_params['server']['bind']['public_address'],
+            "mysql_user": ctl_params['_param']['mysql_admin_user'],
+            "mysql_password": ctl_params['_param']['mysql_admin_password']
         }
 
         return openstack_auth_config

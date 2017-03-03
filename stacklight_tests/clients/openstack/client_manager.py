@@ -1,5 +1,3 @@
-import logging
-
 from cinderclient import client as cinder_client
 from glanceclient import client as glance_client
 from heatclient import client as heat_client
@@ -12,34 +10,6 @@ from novaclient import client as novaclient
 from stacklight_tests import file_cache
 from stacklight_tests import settings
 from stacklight_tests import utils
-
-
-LOG = logging.getLogger(__name__)
-# try:
-#     import muranoclient.v1.client
-# except ImportError:
-#     #LOG.exception()
-#     LOG.warning('Murano client could not be imported.')
-# try:
-#     import saharaclient.client
-# except ImportError:
-#     #LOG.exception()
-#     LOG.warning('Sahara client could not be imported.')
-# try:
-#     import ceilometerclient.v2.client
-# except ImportError:
-#     # LOG.exception()
-#     LOG.warning('Ceilometer client could not be imported.')
-# try:
-#     import ironicclient
-# except ImportError:
-#     # LOG.exception()
-#     LOG.warning('Ironic client could not be imported')
-# try:
-#     import muranoclient.glance.client as art_client
-# except ImportError:
-#     # LOG.exception()
-#     LOG.warning('Artifacts client could not be imported')
 
 
 class OfficialClientManager(object):
