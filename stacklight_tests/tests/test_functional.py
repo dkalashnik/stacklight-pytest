@@ -852,8 +852,17 @@ class TestFunctional(base_test.BaseLMATest):
         self.grafana_api.check_grafana_online()
         dashboard = self.grafana_api.get_dashboard(dashboard_name)
         result = dashboard.classify_all_dashboard_queries()
-        ok_queries, no_table_queries, failed_queries = result
-
-        logger.debug(no_table_queries)
-        logger.debug(failed_queries)
-        assert ok_queries and not no_table_queries and not failed_queries
+        ok_panels, no_table_panels, failed_panels = result
+        fail_msg = (
+            "Total OK: {len_ok}\n"
+            "No table: {no_table}\nTotal no table: {len_no}\n"
+            "Failed queries: {failed}\n Total failed: {len_fail}".format(
+                len_ok=len(ok_panels),
+                no_table=no_table_panels.items(),
+                len_no=len(no_table_panels),
+                failed=failed_panels.items(),
+                len_fail=len(failed_panels))
+        )
+        assert (ok_panels and not
+                no_table_panels and not
+                failed_panels), fail_msg

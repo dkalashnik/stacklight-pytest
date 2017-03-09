@@ -182,12 +182,93 @@ class InfluxdbApi(object):
         return measurements
 
 
+class InfluxDBQueryBuilder(object):
+    def __init__(self, source):
+        self.target = source
+        self.tags = source["tags"]
+        self.select = source["select"]
+        self.policy = source.get("policy", "default")
+        self.measurement = source["measurement"]
+        self.group_by = source["groupBy"]
+
+    def _render_tags(self):
+        res = []
+        for tag in self.tags:
+            value = tag["value"]
+            default_operator = "=~" if "/" in value else "="
+            operator = tag.get("operator", default_operator)
+            if "~" not in operator:
+                value = "'{}'".format(value)
+            res.append(
+                '{} "{}" {} {}'.format(
+                    tag.get("condition", "AND") if res else "",
+                    tag["key"],
+                    operator,
+                    value,
+                )
+            )
+        return " ".join(res)[1:]
+
+    def _render_selectors(self):
+        def align_fns():
+            fns = sel[1:]
+            field = sel[0]["params"][0]
+            value = field
+            for fn in fns:
+                if fn["type"] == "math":
+                    value += fn["params"][0]
+                else:
+                    params = fn["params"][:]
+                    params.insert(0, value)
+                    value = "{}({})".format(fn["type"], ", ".join(params))
+            return value
+
+        selectors = []
+        for sel in self.select:
+            selectors.append(align_fns())
+        res = "SELECT {}".format(", ".join(selectors))
+        return res
+
+    def _render_measurement(self):
+        table = self.measurement
+        if self.policy != "default":
+            table = "{}.{}".format(self.policy, table)
+        return ' FROM "{}"'.format(table)
+
+    def _render_where_clause(self):
+        tags = "{} AND ".format(self._render_tags()) if self.tags else ""
+        return " WHERE {}$timeFilter".format(tags)
+
+    def _render_group_by(self):
+        if not self.group_by:
+            return ""
+        res = []
+        for cond in self.group_by:
+            value = ", ".join(cond["params"])
+            if cond["type"] != "tag":
+                value = "{}({})".format(cond["type"], value)
+            else:
+                value = '"{}"'.format(value)
+            res.append(value)
+        return " GROUP BY {}".format(
+            ", ".join(res).replace(
+                ", fill", " fill").replace(  # Fill should be without comma
+                "auto", "$interval"))  # auto for time is $interval
+
+    def render_query(self):
+        query = self._render_selectors()
+        query += self._render_measurement()
+        query += self._render_where_clause()
+        query += self._render_group_by()
+        return query
+
+
 class Dashboard(object):
     def __init__(self, dash_dict, influxdb):
         self.name = dash_dict["meta"]["slug"]
         self.dash_dict = dash_dict
         self._influxdb_api = influxdb
-        self.persistent_templates = {
+        self.templates = {
             "$interval": "1m",
             "$timeFilter": "time > now() - 1h",
             "$environment": self._influxdb_api.get_environment_name()
@@ -218,8 +299,14 @@ class Dashboard(object):
         # like "FROM /apache_workers/", so we should not check it
         return None
 
+    @property
+    def panels(self):
+        for row in self.dash_dict["dashboard"]["rows"]:
+            for panel in row["panels"]:
+                yield panel, row
+
     def _compile_templates(self, template_queries):
-        templates = self.persistent_templates.copy()
+        templates = self.templates.copy()
         dependencies = {k: re.findall("\$\w+", v) for k, v in
                         template_queries.items()}
         queries_queue = [item[0]
@@ -244,44 +331,43 @@ class Dashboard(object):
         }
         return self._compile_templates(template_queries)
 
+    def build_query(self, target):
+        if target.get("rawQuery"):
+            return target["query"]
+        return InfluxDBQueryBuilder(target).render_query()
+
     def get_panel_queries(self):
         panel_queries = {}
-        identifier = 0
-        for row in self.dash_dict["dashboard"]["rows"]:
-            for panel in row["panels"]:
-                panel_name = "{}: {}".format(row["title"], panel["title"])
-                for target in panel.get("targets", [{}]):
-                    query = target.get("query")
-                    if query:
-                        query_name = "{}: {}: {}".format(
-                            identifier, panel_name, target.get(
-                                "measurement",
-                                self._parse_measurement_from_query(query)))
-                        identifier += 1
-                        assert query_name not in panel_queries, query_name
-                        panel_queries[query_name] = (
-                            (query,
-                             self._compile_query(query, self.templates)))
+        for panel, row in self.panels:
+            panel_name = "{}->{}".format(row["title"], panel["title"] or "n/a")
+            for target in panel.get("targets", []):
+                query = self.build_query(target)
+                table = target.get(
+                    "measurement", self._parse_measurement_from_query(query))
+                query_name = "{}:{}->{}->RefId:{}".format(
+                    panel["id"], panel_name, table, target.get("refId", "A"))
+                panel_queries[query_name] = query, table
         return panel_queries
 
+    def classify_query(self, raw_query, table):
+        query = self._compile_query(raw_query, self.templates)
+        if table and (table not in self.available_measurements):
+            return "no_table", (raw_query, query, {})
+        raw_result = self._influxdb_api.do_influxdb_query(query).json()
+        try:
+            result = raw_result["results"][0]
+            assert result["series"][0]["values"]
+            return "ok", (raw_query, query, result)
+        except KeyError:
+            return "failed", (raw_query, query, raw_result)
+
     def classify_all_dashboard_queries(self):
-        ok_queries = {}
-        failed_queries = {}
-        no_measurements_queries = {}
-        for key, (raw_query, query) in self.get_panel_queries().items():
-            try:
-                query_table = self._parse_measurement_from_query(query)
-                if query_table and (
-                        query_table not in self.available_measurements):
-                    no_measurements_queries[key] = raw_query, query, {}
-                    continue
-                raw_result = self._influxdb_api.do_influxdb_query(query).json()
-                result = raw_result["results"][0]
-                assert result["series"][0]["values"]
-                ok_queries[key] = raw_query, query, result
-            except KeyError:
-                failed_queries[key] = raw_query, query, raw_result
-        return ok_queries, no_measurements_queries, failed_queries
+        statuses = ("ok", "no_table", "failed")
+        queries = collections.defaultdict(dict)
+        for key, (raw_query, table) in self.get_panel_queries().items():
+            query_type, result = self.classify_query(raw_query, table)
+            queries[query_type][key] = result
+        return [queries[status] for status in statuses]
 
 
 class GrafanaApi(object):
