@@ -1,4 +1,5 @@
 import collections
+import itertools as it
 import logging
 import re
 import urlparse
@@ -43,6 +44,26 @@ class InfluxdbApi(object):
         self.db_name = db_name
 
         self.influx_db_url = "http://{0}:{1}/".format(self.address, self.port)
+
+    @staticmethod
+    def compile_query(query, replaces):
+        for pattern, value in replaces.items():
+            query = query.replace(pattern, value)
+        # NOTE(rpromyshlennikov): temporary fix for unknown hostname
+        # (node-1 vs node-1.test.domain.local)
+        query = query.replace(".test.domain.local", "")
+        # NOTE(rpromyshlennikov): fix for regex queries (e.g: for mount points)
+        query = query.replace("^/", "^\/")
+        return query
+
+    @staticmethod
+    def parse_measurement(query):
+        result = re.search('from \"(\w+)\"', query, re.IGNORECASE)
+        if result:
+            return result.group(1)
+        # NOTE(rpromyshlennikov): there can be multi-tables requests
+        # like "FROM /apache_workers/", so we should not check it
+        return None
 
     def do_influxdb_query(self, query, expected_codes=(200,)):
         logger.debug('Query is: %s', query)
@@ -199,21 +220,19 @@ class InfluxDBQueryBuilder(object):
             operator = tag.get("operator", default_operator)
             if "~" not in operator:
                 value = "'{}'".format(value)
-            res.append(
-                '{} "{}" {} {}'.format(
-                    tag.get("condition", "AND") if res else "",
-                    tag["key"],
-                    operator,
-                    value,
-                )
+            conditions = (
+                tag.get("condition", "AND"),
+                '"{}"'.format(tag["key"]),
+                operator,
+                value,
             )
-        return " ".join(res)[1:]
+            res.append(" ".join(conditions if res else conditions[1:]))
+        return " ".join(res)
 
     def _render_selectors(self):
-        def align_fns():
-            fns = sel[1:]
-            field = sel[0]["params"][0]
-            value = field
+        def align_fns(selector):
+            fns = selector[1:]
+            value = selector[0]["params"][0]
             for fn in fns:
                 if fn["type"] == "math":
                     value += fn["params"][0]
@@ -223,9 +242,7 @@ class InfluxDBQueryBuilder(object):
                     value = "{}({})".format(fn["type"], ", ".join(params))
             return value
 
-        selectors = []
-        for sel in self.select:
-            selectors.append(align_fns())
+        selectors = [align_fns(sel) for sel in self.select]
         res = "SELECT {}".format(", ".join(selectors))
         return res
 
@@ -251,9 +268,9 @@ class InfluxDBQueryBuilder(object):
                 value = '"{}"'.format(value)
             res.append(value)
         return " GROUP BY {}".format(
-            ", ".join(res).replace(
-                ", fill", " fill").replace(  # Fill should be without comma
-                "auto", "$interval"))  # auto for time is $interval
+            ", ".join(res)
+                .replace(", fill", " fill")  # "fill" should be without comma
+                .replace("auto", "$interval"))  # "auto" for time is $interval
 
     def render_query(self):
         query = self._render_selectors()
@@ -263,41 +280,183 @@ class InfluxDBQueryBuilder(object):
         return query
 
 
+class DepNode(object):
+    def __init__(self, value, template_name, parent, dependencies=()):
+        self.value = value
+        self.name = template_name
+        self.parent = parent
+        self.children = set()
+        self.level = getattr(parent, "level", -1) + 1
+        self.dependencies = dependencies
+        if parent is not None:
+            self.parent.children.add(self)
+
+    def __repr__(self):
+        return "{}:{}:{}".format(
+            self.__class__.__name__, self.name, self.value)
+
+    def __str__(self):
+        return self.value
+
+    def get_full_template(self):
+        curr_node = self
+        template = {}
+        while curr_node.parent:
+            parent = curr_node.parent
+            template[parent.name] = str(parent)
+            curr_node = parent
+        template[self.name] = self.value
+        return template
+
+    def get_templates_with_children(self):
+        base_template = self.get_full_template()
+        children_groups = collections.defaultdict(set)
+        for child in self.children:
+            children_groups[child.name].add(child.value)
+        templates = []
+        for item in it.product(*children_groups.values()):
+            template = base_template.copy()
+            for n, key in enumerate(children_groups.keys()):
+                template[key] = item[n]
+            templates.append(template)
+        return templates
+
+
+class TemplatesTree(object):
+    def __init__(self, queries, influxdb):
+        self.queries = queries
+        self.default_templates = {
+            "$interval": "1m",
+            "$timeFilter": "time > now() - 1h",
+        }
+        self.dependencies = {
+            k: self.parse_dependencies(v) for k, v in self.queries.items()
+        }
+        self._compile_query = influxdb.compile_query
+        self._do_influxdb_query = influxdb.do_influxdb_query
+
+        self.nodes_by_level = collections.defaultdict(set)
+        self.levels_by_name = collections.OrderedDict()
+        self._build_abs_tree()
+        self._build()
+
+    @staticmethod
+    def parse_dependencies(query):
+        return re.findall("\$\w+", query)
+
+    def _build_abs_tree(self):
+        """Builds abstract tree of dependencies.
+
+        For example it will build next tree for next dependencies:
+            {'$environment': [],
+             '$server': ['$environment'],
+             '$peer': ['$environment', '$server'],
+             '$volume': ['$environment', '$server']}
+
+            $environment
+                  |
+                  v
+               $server
+                /  \
+               v    v
+            $peer  $volume
+        """
+        curr_level = 0
+        for template, deps in utils.topo_sort(self.dependencies):
+            if deps:
+                curr_level = self.find_closest_parent_level(deps) + 1
+            self.levels_by_name[template] = curr_level
+
+    def _query_values_for_template(self, template, substitutions):
+        query = self._compile_query(self.queries[template], substitutions)
+        result = self._do_influxdb_query(query).json()
+        try:
+            values = result["results"][0]["series"][0]["values"]
+        except KeyError:
+            values = []
+        return values
+
+    def _fill_top_level(self):
+        dep_name = self.levels_by_name.keys()[0]
+        parent = None
+        values = self._query_values_for_template(dep_name, {})
+        for value in values:
+            self.add_template(value[1], dep_name, parent)
+
+    def _build(self):
+        """Fill tree with all possible values for templates_tree.
+
+        For example:
+                     mkX-lab-name.local
+                    /        |        \
+                   /         |         \
+                  v          v          v
+         ...<--ctl01       ctl02        ctl03-->...
+                       /-----|--------\
+                 /-----      |---\     ---------\
+                v            |    ----\          v
+           172.16.10.101     v         v     172.16.10.102
+                          glance  keystone-keys
+
+        """
+        self._fill_top_level()
+        for name, level in self.levels_by_name.items()[1:]:
+            parents = self.get_closest_parents(self.dependencies[name])
+            for parent in parents:
+                substitutions = parent.get_full_template()
+                values = self._query_values_for_template(name, substitutions)
+                for value in values:
+                    self.add_template(value[1], name, parent)
+
+    def get_nodes_on_level(self, level):
+        return self.nodes_by_level[level]
+
+    def get_nodes_by_name(self, name):
+        return (node for node in
+                self.get_nodes_on_level(self.levels_by_name[name])
+                if node.name == name)
+
+    def find_closest_parent_level(self, dependencies):
+        return max(self.levels_by_name[dep] for dep in dependencies)
+
+    def get_closest_parents(self, dependencies):
+        parent_level = self.find_closest_parent_level(dependencies)
+        return [node for node in self.get_nodes_on_level(parent_level)
+                if node.name in dependencies]
+
+    def add_template(self, value, name, parent):
+        dependencies = self.dependencies[name]
+        new_node = DepNode(value, name, parent, dependencies)
+        self.nodes_by_level[new_node.level].add(new_node)
+
+    def get_all_templates_for_query(self, query):
+        dependencies = [dep for dep in self.parse_dependencies(query)
+                        if dep not in self.default_templates]
+        if not dependencies:
+            return [self.default_templates]
+        dep_nodes = self.get_closest_parents(dependencies)
+        groups = {node.name for node in dep_nodes}
+        if len(groups) > 1:
+            parents = {node.parent for node in dep_nodes}
+            templates = list(it.chain(*[parent.get_templates_with_children()
+                                        for parent in parents]))
+        else:
+            templates = [node.get_full_template() for node in dep_nodes]
+        for template in templates:
+            template.update(self.default_templates)
+        return templates
+
+
 class Dashboard(object):
     def __init__(self, dash_dict, influxdb):
         self.name = dash_dict["meta"]["slug"]
         self.dash_dict = dash_dict
         self._influxdb_api = influxdb
-        self.templates = {
-            "$interval": "1m",
-            "$timeFilter": "time > now() - 1h",
-            "$environment": self._influxdb_api.get_environment_name()
-        }
-        self.templates = self.get_templates()
+        self.templates_tree = self.get_templates_tree()
         self.available_measurements = self._influxdb_api.get_all_measurements()
 
     def __repr__(self):
         return "{}: {}".format(self.__class__, self.name)
-
-    @staticmethod
-    def _compile_query(query, replaces):
-        for pattern, value in replaces.items():
-            query = query.replace(pattern, value)
-        # NOTE(rpromyshlennikov): temporary fix for unknown hostname
-        # (node-1 vs node-1.test.domain.local)
-        query = query.replace(".test.domain.local", "")
-        # NOTE(rpromyshlennikov): fix for regex queries (e.g: for mount points)
-        query = query.replace("^/", "^\/")
-        return query
-
-    @staticmethod
-    def _parse_measurement_from_query(query):
-        result = re.search('from "(\w+)"', query, re.IGNORECASE)
-        if result:
-            return result.group(1)
-        # NOTE(rpromyshlennikov): there can be multi-tables requests
-        # like "FROM /apache_workers/", so we should not check it
-        return None
 
     @property
     def panels(self):
@@ -305,33 +464,18 @@ class Dashboard(object):
             for panel in row["panels"]:
                 yield panel, row
 
-    def _compile_templates(self, template_queries):
-        templates = self.templates.copy()
-        dependencies = {k: re.findall("\$\w+", v) for k, v in
-                        template_queries.items()}
-        queries_queue = [item[0]
-                         for item in utils.topo_sort(dependencies)]
-        for item in queries_queue:
-            compiled_tmp = self._compile_query(
-                template_queries[item], templates)
-            try:
-                result = self._influxdb_api.do_influxdb_query(
-                    compiled_tmp).json()["results"][0]["series"][0]["values"]
-            except KeyError:
-                result = [("", "")]
-            # NOTE(rpromyshlennikov): future enhancements:
-            # do multiple values request, not only "0" option
-            templates[item] = [result[1] for result in result][0]
-        return templates
-
-    def get_templates(self):
+    def get_templates_tree(self):
         template_queries = {
             "${}".format(item["name"]): item["query"]
             for item in self.dash_dict["dashboard"]["templating"]["list"]
         }
-        return self._compile_templates(template_queries)
+        return TemplatesTree(template_queries, self._influxdb_api)
 
-    def build_query(self, target):
+    def get_all_templates_for_query(self, query):
+        return self.templates_tree.get_all_templates_for_query(query)
+
+    @staticmethod
+    def build_query(target):
         if target.get("rawQuery"):
             return target["query"]
         return InfluxDBQueryBuilder(target).render_query()
@@ -343,26 +487,34 @@ class Dashboard(object):
             for target in panel.get("targets", []):
                 query = self.build_query(target)
                 table = target.get(
-                    "measurement", self._parse_measurement_from_query(query))
+                    "measurement", self._influxdb_api.parse_measurement(query))
                 query_name = "{}:{}->{}->RefId:{}".format(
                     panel["id"], panel_name, table, target.get("refId", "A"))
                 panel_queries[query_name] = query, table
         return panel_queries
 
     def classify_query(self, raw_query, table):
-        query = self._compile_query(raw_query, self.templates)
         if table and (table not in self.available_measurements):
-            return "no_table", (raw_query, query, {})
-        raw_result = self._influxdb_api.do_influxdb_query(query).json()
-        try:
-            result = raw_result["results"][0]
-            assert result["series"][0]["values"]
-            return "ok", (raw_query, query, result)
-        except KeyError:
-            return "failed", (raw_query, query, raw_result)
+            return "no_table", raw_query
+        results = collections.defaultdict(list)
+        possible_templates = self.get_all_templates_for_query(raw_query)
+        for template in possible_templates:
+            query = self._influxdb_api.compile_query(raw_query, template)
+            raw_result = self._influxdb_api.do_influxdb_query(query).json()
+            try:
+                result = raw_result["results"][0]
+                assert result["series"][0]["values"]
+                results["ok"].append(template)
+            except KeyError:
+                results["failed"].append((template, raw_result))
+        if len(results["ok"]) == len(possible_templates):
+            return "ok", raw_query
+        if len(results["failed"]) == len(possible_templates):
+            return "failed", raw_query
+        return "partially_ok", (raw_query, results["failed"])
 
     def classify_all_dashboard_queries(self):
-        statuses = ("ok", "no_table", "failed")
+        statuses = ("ok", "partially_ok", "no_table", "failed")
         queries = collections.defaultdict(dict)
         for key, (raw_query, table) in self.get_panel_queries().items():
             query_type, result = self.classify_query(raw_query, table)
