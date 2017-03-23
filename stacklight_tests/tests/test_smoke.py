@@ -28,29 +28,15 @@ class TestSmoke(base_test.BaseLMATest):
         Duration 5m
         """
         self.grafana_api.check_grafana_online()
-        dashboard_names = {
-            "Apache", "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
-            "Hypervisor", "InfluxDB", "Keystone", "LMA self-monitoring",
-            "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
-        }
-        if self.env_type == "mk":
-            dashboard_names = {
-                "Cassandra", "GlusterFS", "Nginx", "OpenContrail",
-                "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
-                "Hypervisor", "InfluxDB", "Keystone",
-                "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
-            }
-        dashboard_names = {panel_name.lower().replace(" ", "-")
-                           for panel_name in dashboard_names}
-
-        available_dashboards_names = set()
+        dashboard_names = (
+            base_test.influxdb_grafana_api.get_all_grafana_dashboards_names())
+        absent_dashboards = set()
         for name in dashboard_names:
-            if self.grafana_api.is_dashboard_exists(name):
-                available_dashboards_names.add(name)
+            if not self.grafana_api.is_dashboard_exists(name):
+                absent_dashboards.add(name)
         msg = ("There is not enough panels in available panels, "
                "panels that are not presented: {}")
-        assert dashboard_names == available_dashboards_names, (
-            msg.format(dashboard_names - available_dashboards_names))
+        assert not absent_dashboards, msg.format(absent_dashboards)
 
     def test_openstack_service_metrics_presented(self):
         """Verify the new metrics '<openstack._service>.api were

@@ -838,32 +838,38 @@ class TestFunctional(base_test.BaseLMATest):
                     for t_node in toolchain_nodes)),
             timeout=5 * 60, interval=15)
 
-    def test_grafana_dashboard_panel_queries_toolchain(self):
+    @pytest.mark.parametrize(
+        "dashboard_name",
+        base_test.influxdb_grafana_api.get_all_grafana_dashboards_names())
+    def test_grafana_dashboard_panel_queries(self, dashboard_name):
         """Verify that the panels on dashboards show up in the Grafana UI.
 
         Scenario:
-            1. Check queries for all panels on all dashboards in Grafana.
+            1. Check queries for all panels of given dashboard in Grafana.
 
-        Duration 20m
+        Duration 5m
         """
         self.grafana_api.check_grafana_online()
-        dashboards = self.grafana_api.get_all_dashboards()
-        ok_queries = {}
-        failed_queries = {}
-        no_table_queries = {}
-        for dashboard in dashboards:
-            if dashboard.name.startswith("ceph"):
-                # NOTE(rpromyshlennikov): ceph is disabled in most cases
-                continue
-            result = dashboard.classify_all_dashboard_queries()
-            ok_queries[dashboard.name] = result[0]
-            no_table_queries[dashboard.name] = result[1]
-            failed_queries[dashboard.name] = result[2]
-
-        broken_panels = [
-            items
-            for result in no_table_queries.values()
-            if result
-            for items in result.items()]
-        assert not len(broken_panels), (
-            [broken_panel[0] for broken_panel in broken_panels])
+        dashboard = self.grafana_api.get_dashboard(dashboard_name)
+        result = dashboard.classify_all_dashboard_queries()
+        ok_panels, partially_ok_panels, no_table_panels, failed_panels = result
+        fail_msg = (
+            "Total OK: {len_ok}\n"
+            "No table: {no_table}\n"
+            "Total no table: {len_no}\n"
+            "Partially ok queries: {partially_ok}\n"
+            "Total partially ok: {len_partially_ok}\n"
+            "Failed queries: {failed}\n"
+            "Total failed: {len_fail}".format(
+                len_ok=len(ok_panels),
+                partially_ok=partially_ok_panels.items(),
+                len_partially_ok=len(partially_ok_panels),
+                no_table=no_table_panels.items(),
+                len_no=len(no_table_panels),
+                failed=failed_panels.items(),
+                len_fail=len(failed_panels))
+        )
+        assert (ok_panels and not
+                partially_ok_panels and not
+                no_table_panels and not
+                failed_panels), fail_msg
