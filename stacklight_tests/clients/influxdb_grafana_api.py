@@ -173,7 +173,7 @@ class InfluxdbApi(object):
         self._check_influx_query_last_value(query, expected_count)
 
     def check_mk_alarm(self, member, warning_level, hostname=None,
-                       time_range="now() - 10s", table="status", reraise=True):
+                       time_range="now() - 30s", table="status", reraise=True):
         Result = collections.namedtuple(
             "Result", field_names=("status", "host", "value"))
         filters = ["member = '{}'".format(member),

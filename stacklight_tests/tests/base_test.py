@@ -24,7 +24,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
     RABBITMQ_DISK_WARNING_PERCENT = 99.99
     RABBITMQ_DISK_CRITICAL_PERCENT = 100
     RABBITMQ_MEMORY_WARNING_VALUE = 1.1
-    RABBITMQ_MEMORY_CRITICAL_VALUE = 1.0
+    RABBITMQ_MEMORY_CRITICAL_VALUE = 0.9
 
     @classmethod
     def setup_class(cls):
@@ -79,7 +79,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
         cert = False
 
-        if auth.get("public_ssl", None) is not None:
+        if auth.get("public_ssl") is not None:
             cert_content = auth["public_ssl"]["cert_data"]["content"]
             cert = utils.write_cert(cert_content) if cert_content else False
             hostname = auth["public_ssl"]["hostname"]

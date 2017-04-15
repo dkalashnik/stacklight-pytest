@@ -110,7 +110,7 @@ class OfficialClientManager(object):
         service_type = 'compute'
         compute_client = novaclient.Client(
             version=cls.NOVACLIENT_VERSION, session=session,
-            service_type=service_type, no_cache=True, **kwargs)
+            service_type=service_type, os_cache=False, **kwargs)
         return compute_client
 
     @classmethod

@@ -114,8 +114,7 @@ class TestAlerts(base_test.BaseLMATest):
                "(df | grep {volume} | "
                "awk '{{ printf(\"%.0f\\n\", 1024 * ((($3 + $4) * "
                "{percent} / 100) - $3))}}')")
-        controller.check_call(
-            cmd.format(volume=volume, percent=percent))
+        controller.check_call(cmd.format(volume=volume, percent=percent))
 
         check_alarm(value=status)
 
@@ -631,6 +630,8 @@ class TestAlerts(base_test.BaseLMATest):
                 return self.cluster.get_random_controller()
             server = None
             for cluster_host in self.cluster.hosts:
+                if cluster_host.hostname.startswith('prx'):
+                    continue
                 try:
                     res = cluster_host.os.transport.exec_sync(
                         'pgrep {service}'.format(service=some_service))
