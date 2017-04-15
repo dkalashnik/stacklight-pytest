@@ -76,12 +76,12 @@ class TestSmoke(base_test.BaseLMATest):
         service = "elasticsearch"
         self.check_service_installed(service)
         self.check_service_running(service)
-        log_result = self.es_kibana_api.query_elasticsearch(size=10)
+        log_result = self.elasticsearch_api.query_elasticsearch(size=10)
         log_failed_shards = log_result["_shards"]["failed"]
         log_hits = log_result["hits"]
-        notification_result = self.es_kibana_api.query_elasticsearch(size=10)
-        notification_failed_shards = notification_result["_shards"]["failed"]
-        notification_hits = notification_result["hits"]
+        notify_result = self.elasticsearch_api.query_elasticsearch(size=10)
+        notification_failed_shards = notify_result["_shards"]["failed"]
+        notification_hits = notify_result["hits"]
         assert ((not log_failed_shards) and log_hits and
                 (not notification_failed_shards) and notification_hits)
 
@@ -93,8 +93,10 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 5m
         """
-        # TODO(rpromyshlennikov): append with basic Kibana frontend checks
-        assert False
+        self.check_service_installed("kibana")
+        self.kibana_api.check_logs_dashboard()
+        self.kibana_api.check_internal_kibana_api()
+        self.check_service_running("kibana")
 
     def test_display_grafana_dashboards_toolchain(self):
         """Verify that the dashboards show up in the Grafana UI.

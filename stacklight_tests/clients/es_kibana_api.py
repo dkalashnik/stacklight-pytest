@@ -1,4 +1,5 @@
 import logging
+import time
 
 import elasticsearch
 
@@ -7,9 +8,9 @@ from stacklight_tests import utils
 logger = logging.getLogger(__name__)
 
 
-class EsKibanaApi(object):
+class ElasticSearchApi(object):
     def __init__(self, host, port=9200):
-        super(EsKibanaApi, self).__init__()
+        super(ElasticSearchApi, self).__init__()
         self.es = elasticsearch.Elasticsearch(
             [{'host': host, 'port': port}])
         self._kibana_protocol = None
@@ -46,3 +47,21 @@ class EsKibanaApi(object):
         utils.wait(
             lambda: _verify_notifications(expected_notifications),
             timeout=timeout, interval=interval, timeout_msg=msg)
+
+
+class KibanaApi(object):
+    def __init__(self, host, port=5601):
+        self.url = "http://{host}:{port}".format(host=host, port=port)
+
+    def check_logs_dashboard(self):
+        url = "{}/app/kibana#/dashboard/logs".format(self.url)
+        response = utils.check_http_get_response(url)
+        return response
+
+    def check_internal_kibana_api(self):
+        timestamp = int(time.time() * 1000)
+        url = (
+            "{url}/elasticsearch/.kibana/_mapping/*/field/"
+            "_source?_={timestamp}".format(url=self.url, timestamp=timestamp))
+        response = utils.check_http_get_response(url)
+        return response

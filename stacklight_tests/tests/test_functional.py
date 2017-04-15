@@ -218,7 +218,7 @@ class TestFunctional(base_test.BaseLMATest):
 
         Duration 5m
         """
-        output = self.es_kibana_api.query_elasticsearch(
+        output = self.elasticsearch_api.query_elasticsearch(
             query_filter="programname:nova*", size=50)
         assert output['hits']['total'] != 0, "Indexes don't contain Nova logs"
         controllers_hostnames = [controller.hostname for controller
@@ -228,14 +228,14 @@ class TestFunctional(base_test.BaseLMATest):
         target_hostnames = set(controllers_hostnames + computes_hostnames)
         actual_hostnames = set()
         for host in target_hostnames:
-            host_presence = self.es_kibana_api.query_elasticsearch(
+            host_presence = self.elasticsearch_api.query_elasticsearch(
                 query_filter="programname:nova* AND Hostname:{}".format(host),
                 size=50)
             if host_presence['hits']['total'] > 0:
                 actual_hostnames.add(host)
         assert target_hostnames == actual_hostnames, (
             "There are insufficient entries in elasticsearch")
-        assert self.es_kibana_api.query_elasticsearch(
+        assert self.elasticsearch_api.query_elasticsearch(
             query_filter="programname:nova* AND Hostname:mon01",
             size=50)['hits']['total'] == 0, (
             "There are logs collected from irrelevant host")
@@ -336,10 +336,10 @@ class TestFunctional(base_test.BaseLMATest):
         utils.wait(
             lambda: instance.id not in self.os_clients.compute.servers.list()
         )
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             instance_event_types,
             query_filter='instance_id:"{}"'.format(instance.id), size=500)
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             nova_event_types,
             query_filter="Logger:nova", size=500)
 
@@ -376,7 +376,7 @@ class TestFunctional(base_test.BaseLMATest):
             lambda: (image.id not in client.images.list())
         )
 
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             glance_event_types,
             query_filter="Logger:glance", size=500)
 
@@ -418,7 +418,7 @@ class TestFunctional(base_test.BaseLMATest):
         client.users.delete(user)
         client.tenants.delete(tenant)
 
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             keystone_event_types,
             query_filter="Logger:keystone", size=500)
 
@@ -530,7 +530,7 @@ class TestFunctional(base_test.BaseLMATest):
 
         self.os_clients.compute.flavors.delete(extra_large_flavor.id)
 
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             heat_event_types,
             query_filter="Logger:heat", size=500)
 
@@ -594,7 +594,7 @@ class TestFunctional(base_test.BaseLMATest):
         self.os_clients.network.delete_network(net['id'])
         self.os_clients.compute.security_groups.delete(sec_group)
 
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             neutron_event_types,
             query_filter="Logger:neutron", size=500)
 
@@ -627,7 +627,7 @@ class TestFunctional(base_test.BaseLMATest):
         logger.info("Delete the volume")
         cinder.volumes.delete(volume)
         utils.wait(lambda: volume.id not in cinder.volumes.list())
-        self.es_kibana_api.check_notifications(
+        self.elasticsearch_api.check_notifications(
             cinder_event_types,
             query_filter='volume_id:"{}"'.format(volume.id), size=500)
 

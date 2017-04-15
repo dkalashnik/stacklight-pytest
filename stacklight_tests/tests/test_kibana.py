@@ -14,7 +14,7 @@ if env_type != "mk":
 class TestKibana(base_test.BaseLMATest):
     def log_is_presented(self, query_filter, time_range=default_time_range):
         # type: (str) -> None
-        res = self.es_kibana_api.query_elasticsearch(
+        res = self.elasticsearch_api.query_elasticsearch(
             query_filter=query_filter, time_range=time_range)
         return len(res['hits']['hits']) > 0
 

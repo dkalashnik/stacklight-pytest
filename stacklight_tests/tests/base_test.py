@@ -58,7 +58,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             influxdb=cls.influxdb_api,
         )
 
-        cls.es_kibana_api = es_kibana_api.EsKibanaApi(
+        cls.elasticsearch_api = es_kibana_api.ElasticSearchApi(
             host=lma["elasticsearch_vip"],
             port=lma["elasticsearch_port"],
         )
@@ -69,6 +69,11 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             username=lma["nagios_username"],
             password=lma["nagios_password"],
             tls_enabled=lma["nagios_tls"],
+        )
+
+        cls.kibana_api = es_kibana_api.KibanaApi(
+            host=lma["elasticsearch_vip"],
+            port=lma["kibana_port"],
         )
 
         # NOTE(rpromyshlennikov): It may need refactor,
