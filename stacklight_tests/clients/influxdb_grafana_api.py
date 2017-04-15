@@ -198,14 +198,24 @@ class InfluxdbApi(object):
     def get_environment_name(self):
         query = "show tag values from cpu_idle with key = environment_label"
         return self.do_influxdb_query(
-            query).json()['results'][0]["series"][0]["values"][0][1]
+            query).json()["results"][0]["series"][0]["values"][0][1]
 
     def get_all_measurements(self):
         measurements = (
-            self.do_influxdb_query("show measurements").json())['results'][0]
+            self.do_influxdb_query("show measurements").json())["results"][0]
         measurements = {item[0]
                         for item in measurements["series"][0]["values"]}
         return measurements
+
+    def get_tag_table_bindings(self, tag_name):
+        tags = (self.do_influxdb_query("SHOW TAG keys")
+                    .json()["results"][0]["series"])
+        # NOTE(rpromyshlennikov):tag["values"] is a nested list like this:
+        # u'values': [[u'environment_label'], [u'hostname'], [u'region']],
+        # so it should be flatten
+        tables = [tag["name"] for tag in tags
+                  if tag_name in it.chain.from_iterable(tag["values"])]
+        return tables
 
 
 class InfluxDBQueryBuilder(object):

@@ -1,3 +1,5 @@
+import pytest
+
 from stacklight_tests.tests import base_test
 
 
@@ -242,3 +244,11 @@ class TestSmoke(base_test.BaseLMATest):
         absent_hostnames = hostnames - set(nodes_statuses.keys())
         assert not absent_hostnames
         assert not any([value == "DOWN" for value in nodes_statuses.values()])
+
+    @pytest.mark.parametrize("tag_value", ["region", "aggregate"])
+    def test_metrics_tag(self, tag_value):
+        """Check that tags presented for all metrics."""
+        tag_tables = set(self.influxdb_api.get_tag_table_bindings(tag_value))
+        all_tables = set(self.influxdb_api.get_all_measurements())
+        absent_metrics_tables = all_tables - tag_tables
+        assert not absent_metrics_tables, "Absent tables with metrics found."
