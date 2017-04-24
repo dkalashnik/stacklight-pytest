@@ -72,6 +72,7 @@ class MKConfig(object):
             "nagios_tls": False,
             "nagios_username": mon_params['nagios_username'],
             "nagios_password": mon_params['nagios_password'],
+            "kibana_port": mon_params['cluster_kibana_port'],
         }
         return lma_config
 

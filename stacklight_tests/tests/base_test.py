@@ -24,7 +24,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
     RABBITMQ_DISK_WARNING_PERCENT = 99.99
     RABBITMQ_DISK_CRITICAL_PERCENT = 100
     RABBITMQ_MEMORY_WARNING_VALUE = 1.1
-    RABBITMQ_MEMORY_CRITICAL_VALUE = 1.0
+    RABBITMQ_MEMORY_CRITICAL_VALUE = 0.9
 
     @classmethod
     def setup_class(cls):
@@ -58,7 +58,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             influxdb=cls.influxdb_api,
         )
 
-        cls.es_kibana_api = es_kibana_api.EsKibanaApi(
+        cls.elasticsearch_api = es_kibana_api.ElasticSearchApi(
             host=lma["elasticsearch_vip"],
             port=lma["elasticsearch_port"],
         )
@@ -71,6 +71,11 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             tls_enabled=lma["nagios_tls"],
         )
 
+        cls.kibana_api = es_kibana_api.KibanaApi(
+            host=lma["elasticsearch_vip"],
+            port=lma["kibana_port"],
+        )
+
         # NOTE(rpromyshlennikov): It may need refactor,
         # if we use deploy without SSL
         auth = cls.config.get("auth")
@@ -79,7 +84,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
 
         cert = False
 
-        if auth.get("public_ssl", None) is not None:
+        if auth.get("public_ssl") is not None:
             cert_content = auth["public_ssl"]["cert_data"]["content"]
             cert = utils.write_cert(cert_content) if cert_content else False
             hostname = auth["public_ssl"]["hostname"]
@@ -130,3 +135,26 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                 source=source,
                 hostname=None,
                 value=status)
+
+    def get_lma_role_name(self):
+        """Return LMA node role on different environments."""
+        toolchain_role = "infrastructure_alerting"
+        if self.env_type == "mk":
+            toolchain_role = "monitoring"
+        return toolchain_role
+
+    def check_service_installed(self, name, role=None):
+        """Checks that service is installed on nodes with provided role."""
+        if role is None:
+            role = self.get_lma_role_name()
+        nodes = self.cluster.filter_by_role(role)
+        for node in nodes:
+            node.os.check_package_installed(name)
+
+    def check_service_running(self, name, role=None):
+        """Checks that service is running on nodes with provided role."""
+        if role is None:
+            role = self.get_lma_role_name()
+        nodes = self.cluster.filter_by_role(role)
+        for node in nodes:
+            node.os.manage_service(name, "status")

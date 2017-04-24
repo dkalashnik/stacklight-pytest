@@ -14,7 +14,7 @@ if env_type != "mk":
 class TestKibana(base_test.BaseLMATest):
     def log_is_presented(self, query_filter, time_range=default_time_range):
         # type: (str) -> None
-        res = self.es_kibana_api.query_elasticsearch(
+        res = self.elasticsearch_api.query_elasticsearch(
             query_filter=query_filter, time_range=time_range)
         return len(res['hits']['hits']) > 0
 
@@ -27,7 +27,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a haproxy logs.
 
-        Duration 10m
+        Duration 1m
         """
         assert self.log_is_presented('programname:haproxy')
 
@@ -37,7 +37,7 @@ class TestKibana(base_test.BaseLMATest):
             1. Run elasticsearch query to validate presence of a
                openvswitch logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.neutron AND '
@@ -59,7 +59,7 @@ class TestKibana(base_test.BaseLMATest):
             1. Run elasticsearch query to validate presence of a
                networking logs.
 
-        Duration 10m
+        Duration 1m
         """
         agent_entities = {
             'Logger:openstack.neutron AND programname:dhcp-agent',
@@ -79,7 +79,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a swift logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.swift AND programname:swift-account-server',
@@ -94,7 +94,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a service logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.glance AND programname:api',
@@ -116,7 +116,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a service logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.keystone AND programname:keystone-wsgi-admin',
@@ -138,7 +138,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a service logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.heat AND programname:heat-api',
@@ -156,7 +156,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a service logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.cinder AND programname:cinder-api',
@@ -174,7 +174,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a nova logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:openstack.nova AND programname:nova-api',
@@ -193,7 +193,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a rabbitmq logs.
 
-        Duration 10m
+        Duration 1m
         """
         query_filter = 'Logger:pacemaker AND rabbitmq*'
         if self.is_mk:
@@ -205,7 +205,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a horizon logs.
 
-        Duration 10m
+        Duration 1m
         """
         assert self.log_is_presented('programname:horizon*')
 
@@ -214,7 +214,7 @@ class TestKibana(base_test.BaseLMATest):
         Scenario:
             1. Run elasticsearch query to validate presence of a system logs.
 
-        Duration 10m
+        Duration 1m
         """
 
         if self.is_mk:
@@ -246,7 +246,7 @@ class TestKibana(base_test.BaseLMATest):
             1. Run elasticsearch query to validate presence of a
             zookeeper logs.
 
-        Duration 10m
+        Duration 1m
         """
         assert self.log_is_presented(
             'Logger:contrail.zookeeper AND programname:zookeeper')
@@ -258,7 +258,7 @@ class TestKibana(base_test.BaseLMATest):
             1. Run elasticsearch query to validate presence of a
             cassandra logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:contrail.cassandra.system AND programname:cassandra',
@@ -274,7 +274,7 @@ class TestKibana(base_test.BaseLMATest):
             1. Run elasticsearch query to validate presence of a
             contrail logs.
 
-        Duration 10m
+        Duration 1m
         """
         entities = {
             'Logger:contrail.alarm-gen*',
