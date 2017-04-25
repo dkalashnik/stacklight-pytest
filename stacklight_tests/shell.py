@@ -21,5 +21,6 @@ def main():
     args = parser.parse_args()
     fn_mapping[args.cmd]()
 
+
 if __name__ == "__main__":
     main()

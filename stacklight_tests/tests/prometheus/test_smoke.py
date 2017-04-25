@@ -1,7 +1,7 @@
 from stacklight_tests.tests.prometheus import base_test
 
 
-class TestProm(base_test.BaseLMATest):
+class TestPrometheusSmoke(base_test.BaseLMAPrometheusTest):
     def test_prometheus_container(self):
         prometheus_nodes = self.cluster.filter_by_role("prometheus")
 

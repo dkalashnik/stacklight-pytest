@@ -7,7 +7,7 @@ from stacklight_tests import utils
 logger = logging.getLogger(__name__)
 
 
-class BaseLMATest(object):
+class BaseLMAPrometheusTest(object):
     @classmethod
     def setup_class(cls):
         cls.config = utils.load_config()
@@ -21,6 +21,7 @@ class BaseLMATest(object):
 
         prometheus_config = cls.config.get("prometheus")
         cls.prometheus_api = prometheus_client.PrometheusClient(
-            "http://{0}:{1}/".format(prometheus_config["prometheus_vip"],
-                                     prometheus_config["prometheus_server_port"])
+            "http://{0}:{1}/".format(
+                prometheus_config["prometheus_vip"],
+                prometheus_config["prometheus_server_port"])
         )

@@ -1,7 +1,7 @@
 from stacklight_tests.tests.prometheus import base_test
 
 
-class TestPrometheusMetrics(base_test.BaseLMATest):
+class TestPrometheusMetrics(base_test.BaseLMAPrometheusTest):
     def test_k8s_metrics(self):
         nodes = self.cluster.filter_by_role("kubernetes")
         expected_hostnames = [node.fqdn.split(".")[0] for node in nodes]
@@ -51,5 +51,6 @@ class TestPrometheusMetrics(base_test.BaseLMATest):
         assert expected_hostnames == []
 
     def test_prometheus_metrics(self):
-        metric = self.prometheus_api.get_query("prometheus_local_storage_series_ops_total")
+        metric = self.prometheus_api.get_query(
+            "prometheus_local_storage_series_ops_total")
         assert len(metric) != 0
