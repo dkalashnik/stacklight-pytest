@@ -20,8 +20,8 @@ class SSHTransport(object):
         self.username = username
         self.password = password
         if private_key is not None:
-            self.private_key = paramiko.RSAKey.\
-                from_private_key(cStringIO.StringIO(private_key))
+            self.private_key = paramiko.RSAKey.from_private_key(
+                cStringIO.StringIO(private_key))
         else:
             self.private_key = None
 
