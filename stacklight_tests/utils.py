@@ -1,3 +1,4 @@
+import datetime as dt
 import os
 import random
 import tempfile
@@ -103,3 +104,15 @@ def check_http_get_response(url, expected_codes=(200,), msg=None, **kwargs):
         assert response.status_code in expected_codes, msg.format(
             response.status_code, expected_codes)
     return response
+
+
+def parse_time_rfc_3339(timestamp):
+    dt_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+    dt_fallback_format = "%Y-%m-%dT%H:%M:%SZ"
+    # zero_dt = dt.datetime.strptime("0001-01-01T00:00:00Z",
+    #                                dt_fallback_format)
+    try:
+        result = dt.datetime.strptime(timestamp, dt_format)
+    except ValueError:
+        result = dt.datetime.strptime(timestamp, dt_fallback_format)
+    return result

@@ -1,6 +1,10 @@
+import logging
 import urlparse
 
 import requests
+
+
+logger = logging.getLogger(__name__)
 
 
 class HttpClient(object):
@@ -14,6 +18,7 @@ class HttpClient(object):
         self.base_url = base_url
 
     def request(self, url, method, headers=None, body=None, **kwargs):
+        logger.debug("Sending request to: {}".format(url))
         if headers is None:
             headers = {'Content-Type': 'application/json'}
 

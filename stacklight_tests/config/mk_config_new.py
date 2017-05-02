@@ -72,8 +72,8 @@ class MKConfig(object):
         }
 
     def generate_elasticsearch_config(self):
-        _param = \
-            self.get_application_node("elasticsearch")['parameters']['_param']
+        _param = (
+            self.get_application_node("elasticsearch")['parameters']['_param'])
         return {
             "elasticsearch_vip": _param['kibana_elasticsearch_host'],
             "elasticsearch_port": _param['elasticsearch_port'],
@@ -99,7 +99,8 @@ class MKConfig(object):
         }
 
     def generate_keystone_config(self):
-        _param = self.get_application_node("keystone")['parameters']['keystone']
+        _param = (
+            self.get_application_node("keystone")['parameters']['keystone'])
         return {
             "admin_name": _param['server']['admin_name'],
             "admin_password": _param['server']['admin_password'],
@@ -117,9 +118,11 @@ class MKConfig(object):
 
     def generate_prometheus_config(self):
         _param = self.get_application_node("prometheus")['parameters']
-        expose_params = _param["docker"]["client"]["stack"]["monitoring"]["service"]
+        expose_params = (
+            _param["docker"]["client"]["stack"]["monitoring"]["service"])
         get_port = lambda x: x["ports"][0].split(":")[0]
         return {
+            "use_prometheus_query_alert": True,
             "prometheus_vip": _param["_param"]["prometheus_control_address"],
             "prometheus_server_port":
                 get_port(expose_params["server"]),

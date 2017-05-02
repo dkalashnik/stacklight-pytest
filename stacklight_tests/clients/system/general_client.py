@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import socket
 
@@ -283,3 +284,18 @@ class GeneralActionsClient(object):
     def check_package_installed(self, name):
         """Check that package is installed on host."""
         return self.check_call("dpkg-query -l {}".format(name))
+
+    @contextlib.contextmanager
+    def make_temporary_load(self, processes_count=10):
+        load_cmd = ('for i in {{1..{}}}; '
+                    'do '
+                    '(nohup bash -c "while [ 1 ] ; '
+                    'do echo $((13**99)) 1>/dev/null 2>&1; '
+                    'done" &>/dev/null &);'
+                    'done').format(processes_count)
+        unload_cmd = "pkill -f 'bash -c'"
+        self.check_call(load_cmd)
+        try:
+            yield
+        finally:
+            self.check_call(unload_cmd)

@@ -1,10 +1,7 @@
-import logging
-
+from stacklight_tests.clients.prometheus import alertmanager_client
 from stacklight_tests.clients.prometheus import prometheus_client
 from stacklight_tests import objects
 from stacklight_tests import utils
-
-logger = logging.getLogger(__name__)
 
 
 class BaseLMAPrometheusTest(object):
@@ -25,3 +22,17 @@ class BaseLMAPrometheusTest(object):
                 prometheus_config["prometheus_vip"],
                 prometheus_config["prometheus_server_port"])
         )
+        if not prometheus_config.get("use_prometheus_query_alert", True):
+            cls.prometheus_alerting = alertmanager_client.AlertManagerClient(
+                "http://{0}:{1}/".format(
+                    prometheus_config["prometheus_vip"],
+                    prometheus_config["prometheus_alertmanager"])
+            )
+        else:
+            cls.prometheus_alerting = (
+                alertmanager_client.PrometheusQueryAlertClient(
+                    "http://{0}:{1}/".format(
+                        prometheus_config["prometheus_vip"],
+                        prometheus_config["prometheus_server_port"])
+                )
+            )
