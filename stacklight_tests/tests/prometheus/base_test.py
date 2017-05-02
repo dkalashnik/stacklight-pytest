@@ -8,7 +8,7 @@ class BaseLMAPrometheusTest(object):
     @classmethod
     def setup_class(cls):
         cls.config = utils.load_config()
-        nodes = cls.config.get("ssh")
+        nodes = cls.config.get("nodes")
         cls.cluster = objects.Cluster()
 
         for node_args in nodes:

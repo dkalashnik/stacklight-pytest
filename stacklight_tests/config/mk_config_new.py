@@ -45,7 +45,7 @@ class MKConfig(object):
                 return node
         raise NoApplication()
 
-    def generate_ssh_config(self):
+    def generate_nodes_config(self):
         nodes_config = []
         private_key = open("/root/.ssh/id_rsa").read()
 
@@ -134,7 +134,7 @@ class MKConfig(object):
 
     def main(self):
         config = {}
-        configure_apps = ["ssh", "influxdb", "elasticsearch", "grafana",
+        configure_apps = ["nodes", "influxdb", "elasticsearch", "grafana",
                           "nagios", "keystone", "mysql", "prometheus"]
         for application in configure_apps:
             try:
@@ -150,7 +150,7 @@ class MKConfig(object):
         config_filename = utils.get_fixture("config.yaml",
                                             check_existence=False)
         LOG.info("INFO: Saving config to {}".format(config_filename))
-        with file(config_filename, "w") as f:
+        with open(config_filename, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False)
 
 
