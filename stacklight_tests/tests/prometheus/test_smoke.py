@@ -1,9 +1,6 @@
-from stacklight_tests.tests.prometheus import base_test
-
-
-class TestPrometheusSmoke(base_test.BaseLMAPrometheusTest):
-    def test_prometheus_container(self):
-        prometheus_nodes = self.cluster.filter_by_role("prometheus")
+class TestPrometheusSmoke(object):
+    def test_prometheus_container(self, cluster):
+        prometheus_nodes = cluster.filter_by_role("prometheus")
 
         def test_prometheus_container_up(node):
             status = node.exec_command(

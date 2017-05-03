@@ -2,7 +2,10 @@ import logging
 
 import pytest
 
+from stacklight_tests import objects
 from stacklight_tests import utils
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,6 +18,16 @@ def pytest_configure(config):
 @pytest.fixture(scope="session")
 def env_config():
     return utils.load_config()
+
+
+@pytest.fixture(scope="session")
+def cluster(env_config):
+    nodes = env_config.get("nodes")
+    current_cluster = objects.Cluster()
+
+    for node_args in nodes:
+        current_cluster.add_host(objects.Host(**node_args))
+    return current_cluster
 
 
 @pytest.fixture(autouse=True)
@@ -35,8 +48,8 @@ def env_requirements(request, env_config):
     for func in functions:
         if func in reserved:
             continue
-        function = globals().get(func)
-        if function is None:
+        fn = globals().get(func)
+        if fn is None:
             logger.critical('Guard with name {} not found'.format(func))
             raise ValueError('Parse error')
         if not (func.startswith('is_') or func.startswith('has_')):
@@ -45,7 +58,7 @@ def env_requirements(request, env_config):
                     func))
             raise ValueError('Parse error')
         marker_str_evalued = marker_str_evalued.replace(
-            func, str(function(env_config)))
+            func, str(fn(env_config)))
 
     if not eval(marker_str_evalued):
         pytest.skip('Requires criteria: {}, computed instead: {}'.format(
