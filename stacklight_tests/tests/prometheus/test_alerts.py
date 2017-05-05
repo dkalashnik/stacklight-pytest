@@ -1,8 +1,5 @@
-from stacklight_tests.tests.prometheus import base_test
-
-
-class TestAlerts(base_test.BaseLMAPrometheusTest):
-    def test_system_load_alerts(self):
+class TestAlerts(object):
+    def test_system_load_alerts(self, cluster, prometheus_alerting):
         """Check that alert for load overage and idle on node can be fired.
 
         Scenario:
@@ -21,14 +18,14 @@ class TestAlerts(base_test.BaseLMAPrometheusTest):
                     "name": alert_name,
                     "host": compute.hostname,
                 }
-                self.prometheus_alerting.check_alert_status(
+                prometheus_alerting.check_alert_status(
                     criteria, is_fired=is_fired, timeout=6 * 60)
 
         load_processes_count = 20
 
         # TODO(rpromyshlennikov): use ".get_random_compute" method
         # instead of current filter after roles config of hosts will be fixed
-        compute = [host for host in self.cluster.hosts
+        compute = [host for host in cluster.hosts
                    if host.fqdn.startswith("cmp")][0]
 
         check_status(is_fired=False)

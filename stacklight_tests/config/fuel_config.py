@@ -150,7 +150,7 @@ class FuelConfig(object):
 
         config_filename = utils.get_fixture("config.yaml",
                                             check_existence=False)
-        with file(config_filename, "w") as f:
+        with open(config_filename, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False)
 
 

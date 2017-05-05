@@ -91,14 +91,16 @@ class TestSmoke(base_test.BaseLMATest):
         """Smoke test that checks basic features of Kibana.
 
         Scenario:
-            1. Check Kibana frontend
+            1. Check Kibana package is installed
+            2. Check Kibana service is up and running
+            3. Check Kibana frontend
 
         Duration 5m
         """
         self.check_service_installed("kibana")
+        self.check_service_running("kibana")
         self.kibana_api.check_logs_dashboard()
         self.kibana_api.check_internal_kibana_api()
-        self.check_service_running("kibana")
 
     def test_display_grafana_dashboards_toolchain(self):
         """Verify that the dashboards show up in the Grafana UI.
@@ -228,7 +230,7 @@ class TestSmoke(base_test.BaseLMATest):
         assert not absent_services
 
     def test_nagios_hosts_are_available_by_ssh(self):
-        """Check that all nodes are tracked by Nagios via ssh
+        """Check that all nodes are tracked by Nagios via ssh.
 
         Scenario:
             1. Open hosts page and get tracked hosts
