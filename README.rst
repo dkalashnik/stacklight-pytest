@@ -93,3 +93,15 @@ After adding endpoint hostname to hosts file you can run tests.
 
 To view initial tests in test_alerts.py just type 'pytest'. They are using
 default settings from deployment. Later it is going to be configured.
+
+
+Notes
+=====
+
+The difference between our fixture "destructive"
+with its method ".append(callable_recovery)" usage
+and pytest built-in "request" with method ".addfinalizer(callable)
+is in post conditions: "destructive" makes his work only on fail,
+"finalizer" makes it in any case.
+So, use destructive, when reverting of something broken is made in test itself,
+and finalizer when it is not.

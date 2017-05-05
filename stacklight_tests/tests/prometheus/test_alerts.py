@@ -1,4 +1,4 @@
-class TestAlerts(object):
+class TestPrometheusAlerts(object):
     def test_system_load_alerts(self, cluster, prometheus_alerting):
         """Check that alert for load overage and idle on node can be fired.
 
