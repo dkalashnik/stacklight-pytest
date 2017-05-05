@@ -134,9 +134,7 @@ class MKConfig(object):
 
     def main(self):
         config = {}
-        configure_apps = ["nodes", "influxdb", "elasticsearch", "grafana",
-                          "nagios", "keystone", "mysql", "prometheus"]
-        for application in configure_apps:
+        for application in settings.CONFIGURE_APPS:
             try:
                 method = getattr(self, "generate_{}_config".
                                  format(application))
