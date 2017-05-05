@@ -36,7 +36,7 @@ class TestSmoke(base_test.BaseLMATest):
         self.check_service_running("grafana-server")
         self.grafana_api.check_grafana_online()
 
-    def test_nagios_installed(self):
+    def test_nagios_installed(self, destructive):
         """Smoke test that checks basic features of Nagios.
 
         Scenario:
@@ -55,13 +55,12 @@ class TestSmoke(base_test.BaseLMATest):
         def set_origin_password():
             self.nagios_api.password = origin_password
             self.nagios_api.nagios_url = self.nagios_api.format_url()
-        self.destructive_actions.append(set_origin_password)
+        destructive.append(set_origin_password)
         self.nagios_api.password = "rogue"
         self.nagios_api.nagios_url = self.nagios_api.format_url()
         for page in self.nagios_api.pages.keys():
             self.nagios_api.get_page(page, expected_codes=(401,))
         set_origin_password()
-        self.destructive_actions = []
 
     def test_elasticsearch_installed(self):
         """Smoke test that checks basic features of Elasticsearch.

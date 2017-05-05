@@ -636,7 +636,8 @@ class TestFunctional(base_test.BaseLMATest):
         ids=determinate_components_names().keys())
     @pytest.mark.parametrize(
         "controllers_count", [1, 2], ids=["warning", "critical"])
-    def test_toolchain_alert_service(self, components, controllers_count):
+    def test_toolchain_alert_service(self, destructive,
+                                     components, controllers_count):
         """Verify that the warning and critical alerts for services
         show up in the Grafana and Nagios UI.
 
@@ -683,7 +684,7 @@ class TestFunctional(base_test.BaseLMATest):
                 toolchain_node.os.clear_local_mail()
             for node in controller_nodes:
                 if action == "stop":
-                    self.destructive_actions.append(
+                    destructive.append(
                         lambda: node.os.manage_service(service_names[0],
                                                        "start"))
                 node.os.manage_service(service_names[0], action)
@@ -702,7 +703,6 @@ class TestFunctional(base_test.BaseLMATest):
                     any(t_node.os.check_local_mail(service_names[2], new_state)
                         for t_node in toolchain_nodes)),
                 timeout=5 * 60, interval=15, timeout_msg=msg)
-            self.destructive_actions = []
 
         statuses = {1: (self.WARNING_STATUS, "WARNING"),
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
