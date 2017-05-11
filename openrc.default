@@ -2,6 +2,3 @@
 
 # Hack before project is not packaged
 export PYTHONPATH=".:$PYTHONPATH"
-
-# MK2x parameters
-export ENV_CLUSTER_NAME=mk22-lab-basic

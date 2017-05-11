@@ -40,62 +40,55 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
                 objects.Host(**node_args)
             )
 
-        lma = cls.config.get("lma")
+        influxdb_config = cls.config.get("influxdb")
         cls.influxdb_api = influxdb_grafana_api.InfluxdbApi(
-            address=lma["influxdb_vip"],
-            port=lma["influxdb_port"],
-            username=lma["influxdb_username"],
-            password=lma["influxdb_password"],
-            db_name=lma["influxdb_db_name"]
+            address=influxdb_config["influxdb_vip"],
+            port=influxdb_config["influxdb_port"],
+            username=influxdb_config["influxdb_username"],
+            password=influxdb_config["influxdb_password"],
+            db_name=influxdb_config["influxdb_db_name"]
         )
 
+        grafana_config = cls.config.get("grafana")
         cls.grafana_api = influxdb_grafana_api.GrafanaApi(
-            address=lma["grafana_vip"],
-            port=lma["grafana_port"],
-            username=lma["grafana_username"],
-            password=lma["grafana_password"],
+            address=grafana_config["grafana_vip"],
+            port=grafana_config["grafana_port"],
+            username=grafana_config["grafana_username"],
+            password=grafana_config["grafana_password"],
             influxdb=cls.influxdb_api,
         )
 
+        elasticsearch_config = cls.config.get("elasticsearch")
         cls.elasticsearch_api = es_kibana_api.ElasticSearchApi(
-            host=lma["elasticsearch_vip"],
-            port=lma["elasticsearch_port"],
+            host=elasticsearch_config["elasticsearch_vip"],
+            port=elasticsearch_config["elasticsearch_port"],
         )
 
+        nagios_config = cls.config.get("nagios")
         cls.nagios_api = nagios_api.NagiosApi(
-            address=lma["nagios_vip"],
-            port=lma["nagios_port"],
-            username=lma["nagios_username"],
-            password=lma["nagios_password"],
-            tls_enabled=lma["nagios_tls"],
+            address=nagios_config["nagios_vip"],
+            port=nagios_config["nagios_port"],
+            username=nagios_config["nagios_username"],
+            password=nagios_config["nagios_password"],
+            tls_enabled=nagios_config["nagios_tls"],
         )
 
         cls.kibana_api = es_kibana_api.KibanaApi(
-            host=lma["elasticsearch_vip"],
-            port=lma["kibana_port"],
+            host=elasticsearch_config["elasticsearch_vip"],
+            port=elasticsearch_config["kibana_port"],
         )
 
-        # NOTE(rpromyshlennikov): It may need refactor,
-        # if we use deploy without SSL
-        auth = cls.config.get("auth")
-        public_vip = auth["public_vip"]
+        auth = cls.config.get("keystone")
+        public_vip = auth["public_address"]
         auth_url = "http://{}:5000/".format(public_vip)
 
-        cert = False
-
-        if auth.get("public_ssl") is not None:
-            cert_content = auth["public_ssl"]["cert_data"]["content"]
-            cert = utils.write_cert(cert_content) if cert_content else False
-            hostname = auth["public_ssl"]["hostname"]
-            auth_url = "https://{}:5000/".format(hostname)
-
         cls.os_clients = os_clients.OfficialClientManager(
-            username=auth["access"]["user"],
-            password=auth["access"]["password"],
-            tenant_name=auth["access"]["tenant"],
+            username=auth["admin_name"],
+            password=auth["admin_password"],
+            tenant_name=auth["admin_tenant"],
             auth_url=auth_url,
-            cert=cert,
-            domain=auth["access"].get("domain", "Default"),
+            cert=False,
+            domain=auth.get("domain", "Default"),
         )
 
     def get_generic_alarm_checker(self, node, source):

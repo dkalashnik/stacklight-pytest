@@ -217,8 +217,8 @@ class TestAlerts(base_test.BaseLMATest):
         :type controller: nailgun node
         :returns: None, works as context manager
         """
-        user = self.config['auth'].get('mysql_user', '')
-        password = self.config['auth'].get('mysql_password', '')
+        user = self.config['mysql'].get('mysql_user', '')
+        password = self.config['mysql'].get('mysql_password', '')
         creds = '-u{user}  -p{password}'.format(user=user, password=password)
         cmd = (
             "mysql -AN {creds} -e "
