@@ -96,9 +96,5 @@ def env_requirements(request, env_config):
             marker_str, marker_str_evalued))
 
 
-def is_fuel(env_conf):
-    return env_conf.get("env", {}).get("type", "") == "fuel"
-
-
 def is_mk(env_conf):
     return env_conf.get("env", {}).get("type", "") == "mk"

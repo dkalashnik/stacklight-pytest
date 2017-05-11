@@ -96,25 +96,6 @@ class InfluxdbApi(object):
             filters=" and ".join(filters))
         self._check_influx_query_last_value(query, value)
 
-    def check_alarms(self, alarm_type, filter_value, source, hostname,
-                     value, time_interval="now() - 5m"):
-        filter_by = "node_role"
-        if alarm_type == "service":
-            filter_by = "service"
-        filters = [
-            "time >= {}".format(time_interval),
-            "{} = '{}'".format(filter_by, filter_value),
-        ]
-        if source is not None:
-            filters.append("source = '{}'".format(source))
-        if hostname is not None:
-            filters.append("hostname = '{}'".format(hostname))
-
-        query = "select last(value) from {select_from} where {filters}".format(
-            select_from="{}_status".format(alarm_type),
-            filters=" and ".join(filters))
-        self._check_influx_query_last_value(query, value)
-
     def get_rabbitmq_memory_usage(self, host, interval="now() - 5m"):
         query = (
             "select last(value) from rabbitmq_used_memory "

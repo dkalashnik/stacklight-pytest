@@ -164,10 +164,7 @@ class TestSmoke(base_test.BaseLMATest):
             "keystone-public-api",
             "neutron-api",
             "nova-api",
-            "swift-api",
         }
-        if self.is_mk:
-            services.remove("swift-api")
         query = ("select last(value) "
                  "from openstack_check_local_api "
                  "where time >= now() - 1m and service = '{service}'")
@@ -206,20 +203,12 @@ class TestSmoke(base_test.BaseLMATest):
             "keystone-public-api-endpoint",
             "neutron-api-endpoint",
             "nova-api-endpoint",
-            "swift-api-endpoint",
         }
-        if not self.is_mk:
-            query = ("select last(value) "
-                     "from service_status "
-                     "where time >= now() - 1m "
-                     "and service = '{service}' "
-                     "and source='endpoint'")
-        else:
-            query = ("select last(value) "
-                     "from status "
-                     "where time >= now() - 1m "
-                     "and service = '{service}' ")
-            services.remove("swift-api-endpoint")
+
+        query = ("select last(value) "
+                 "from status "
+                 "where time >= now() - 1m "
+                 "and service = '{service}' ")
         absent_services = set()
         for service in services:
             result = self.influxdb_api.do_influxdb_query(
@@ -238,10 +227,7 @@ class TestSmoke(base_test.BaseLMATest):
         Duration 1m
         """
         nodes_statuses = self.nagios_api.get_all_nodes_statuses()
-        if self.is_mk:
-            hostnames = {host.fqdn for host in self.cluster.hosts}
-        else:
-            hostnames = {host.hostname for host in self.cluster.hosts}
+        hostnames = {host.fqdn for host in self.cluster.hosts}
         absent_hostnames = hostnames - set(nodes_statuses.keys())
         assert not absent_hostnames
         assert not any([value == "DOWN" for value in nodes_statuses.values()])

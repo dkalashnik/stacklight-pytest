@@ -40,16 +40,9 @@ class TestKibana(base_test.BaseLMATest):
         Duration 1m
         """
         entities = {
-            'Logger:openstack.neutron AND '
-            'programname:neutron-openvswitch-agent',
-            'Logger:openstack.neutron AND programname:openvswitch-agent',
-
+            'Logger:ovs AND programname:ovs-vswitchd',
+            'Logger:ovs AND programname:ovsdb-server',
         }
-        if self.is_mk:
-            entities = {
-                'Logger:ovs AND programname:ovs-vswitchd',
-                'Logger:ovs AND programname:ovsdb-server',
-            }
         assert not self.get_absent_programs_for_group(entities,
                                                       time_range="now-12h")
 
@@ -61,31 +54,10 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 1m
         """
-        agent_entities = {
+        entities = {
             'Logger:openstack.neutron AND programname:dhcp-agent',
             'Logger:openstack.neutron AND programname:l3-agent',
             'Logger:openstack.neutron AND programname:metadata-agent',
-        }
-        entities = {
-            'Logger:openstack.neutron AND programname:server',
-        }
-        if not self.is_mk:
-            entities = agent_entities.union(entities)
-        assert not self.get_absent_programs_for_group(entities)
-
-    @pytest.mark.check_env("is_fuel")
-    def test_swift_logs(self):
-        """Check logs for swift.
-        Scenario:
-            1. Run elasticsearch query to validate presence of a swift logs.
-
-        Duration 1m
-        """
-        entities = {
-            'Logger:openstack.swift AND programname:swift-account-server',
-            'Logger:openstack.swift AND programname:swift-container-server',
-            'Logger:openstack.swift AND programname:swift-object-server',
-            'Logger:openstack.swift AND programname:swift-proxy-server'
         }
         assert not self.get_absent_programs_for_group(entities)
 
@@ -98,16 +70,10 @@ class TestKibana(base_test.BaseLMATest):
         """
         entities = {
             'Logger:openstack.glance AND programname:api',
-            'Logger:openstack.glance AND programname:glare',
+            'Logger:glusterfs AND programname:glusterd',
             'Logger:openstack.glance AND programname:registry',
-        }
-        if self.is_mk:
-            entities = {
-                'Logger:openstack.glance AND programname:api',
-                'Logger:glusterfs AND programname:glusterd',
-                'Logger:openstack.glance AND programname:registry',
 
-            }
+        }
 
         assert not self.get_absent_programs_for_group(entities)
 
@@ -118,18 +84,18 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 1m
         """
+        # NOTE(rpromyshlennikov): there are two types of envs:
+        #  with apache and with keystone standalone
+        # TODO(rpromyshlennikov): add env condition checker
+        # dvr_entities = {
+        #     'Logger:openstack.keystone AND programname:keystone-wsgi-admin',
+        #     'Logger:openstack.keystone AND programname:keystone-wsgi-main',
+        #     'Logger:openstack.keystone AND programname:keystone-admin',
+        #     'Logger:openstack.keystone AND programname:keystone-public',
+        # }
         entities = {
-            'Logger:openstack.keystone AND programname:keystone-wsgi-admin',
-            'Logger:openstack.keystone AND programname:keystone-wsgi-main',
-            'Logger:openstack.keystone AND programname:keystone-admin',
-            'Logger:openstack.keystone AND programname:keystone-public',
+            'Logger:openstack.keystone AND programname:keystone',
         }
-        if self.is_mk:
-            # Is it a bug that all keystone logs are aggregated
-            # in one programname?
-            entities = {
-                'Logger:openstack.keystone AND programname:keystone',
-            }
 
         assert not self.get_absent_programs_for_group(entities)
 
@@ -140,15 +106,8 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 1m
         """
-        entities = {
-            'Logger:openstack.heat AND programname:heat-api',
-            'Logger:openstack.heat AND programname:heat-api-cfn',
-            'Logger:openstack.heat AND programname:heat-api-cloudwatch',
-            'Logger:openstack.heat AND programname:heat-engine',
-        }
-        if self.is_mk:
-            # Is it ok that all heat logs are aggregated in one programname?
-            entities = {'Logger:openstack.heat AND programname:heat'}
+        # Is it ok that all heat logs are aggregated in one programname?
+        entities = {'Logger:openstack.heat AND programname:heat'}
         assert not self.get_absent_programs_for_group(entities)
 
     def test_cinder_logs(self):
@@ -163,10 +122,8 @@ class TestKibana(base_test.BaseLMATest):
             'Logger:openstack.cinder AND programname:cinder-backup',
             'Logger:openstack.cinder AND programname:cinder-scheduler',
             'Logger:openstack.cinder AND programname:cinder-volume',
+            'Logger:openstack.cinder AND programname:cinder-manage',
         }
-        if self.is_mk:
-            entities.add(
-                'Logger:openstack.cinder AND programname:cinder-manage')
         assert not self.get_absent_programs_for_group(entities)
 
     def test_nova_logs(self):
@@ -195,9 +152,7 @@ class TestKibana(base_test.BaseLMATest):
 
         Duration 1m
         """
-        query_filter = 'Logger:pacemaker AND rabbitmq*'
-        if self.is_mk:
-            query_filter = 'Logger:rabbitmq* AND programname:rabbitmq'
+        query_filter = 'Logger:rabbitmq* AND programname:rabbitmq'
         assert self.log_is_presented(query_filter, time_range="now-1d")
 
     def test_horizon_logs(self):
@@ -217,27 +172,17 @@ class TestKibana(base_test.BaseLMATest):
         Duration 1m
         """
 
-        if self.is_mk:
-            entities = {
-                'Logger:system.auth',
-                'Logger:system.kern',
-                'Logger:system.syslog',
+        entities = {
+            'Logger:system.auth',
+            'Logger:system.kern',
+            'Logger:system.syslog',
 
-            }
-            absent_logs = self.get_absent_programs_for_group(entities)
-            cron_filter = 'Logger:system* AND programname:CRON'
-            if not self.log_is_presented(cron_filter, time_range="now-30m"):
-                absent_logs.add(cron_filter)
-            assert not absent_logs
-        else:
-            entities = {
-                'Logger:system.auth',
-                'Logger:system.cron',
-                'Logger:system.daemon',
-                'Logger:system.messages',
-                'Logger:system.syslog',
-            }
-        assert not self.get_absent_programs_for_group(entities)
+        }
+        absent_logs = self.get_absent_programs_for_group(entities)
+        cron_filter = 'Logger:system* AND programname:CRON'
+        if not self.log_is_presented(cron_filter, time_range="now-30m"):
+            absent_logs.add(cron_filter)
+        assert not absent_logs
 
     @pytest.mark.check_env("is_mk")
     def test_zookeeper_logs(self):

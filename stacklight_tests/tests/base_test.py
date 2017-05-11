@@ -1,4 +1,3 @@
-from functools import partial
 import logging
 
 from stacklight_tests.clients import es_kibana_api
@@ -99,43 +98,16 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             domain=auth["access"].get("domain", "Default"),
         )
 
-    def get_generic_alarm_checker(self, node, source, node_role,
-                                  alarm_type="node"):
-        if not self.is_mk:
-            check_alarm = partial(self.influxdb_api.check_alarms,
-                                  alarm_type=alarm_type,
-                                  filter_value=node_role,
-                                  source=source,
-                                  hostname=node.hostname)
-        else:
-            def check_alarm(value):
-                return self.influxdb_api.check_mk_alarm(
-                    member=source, warning_level=value, hostname=node.hostname)
+    def get_generic_alarm_checker(self, node, source):
+        def check_alarm(value):
+            return self.influxdb_api.check_mk_alarm(
+                member=source, warning_level=value, hostname=node.hostname)
         return check_alarm
-
-    def verify_service_alarms(self, trigger_fn, trigger_count,
-                              metrics, status):
-        for _ in range(trigger_count):
-            trigger_fn()
-        for service, source in metrics.items():
-            self.influxdb_api.check_alarms(
-                alarm_type="service",
-                filter_value=service,
-                source=source,
-                hostname=None,
-                value=status)
-
-    def get_lma_role_name(self):
-        """Return LMA node role on different environments."""
-        toolchain_role = "infrastructure_alerting"
-        if self.env_type == "mk":
-            toolchain_role = "monitoring"
-        return toolchain_role
 
     def check_service_installed(self, name, role=None):
         """Checks that service is installed on nodes with provided role."""
         if role is None:
-            role = self.get_lma_role_name()
+            role = "monitoring"
         nodes = self.cluster.filter_by_role(role)
         for node in nodes:
             node.os.check_package_installed(name)
@@ -143,7 +115,7 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
     def check_service_running(self, name, role=None):
         """Checks that service is running on nodes with provided role."""
         if role is None:
-            role = self.get_lma_role_name()
+            role = "monitoring"
         nodes = self.cluster.filter_by_role(role)
         for node in nodes:
             node.os.manage_service(name, "status")

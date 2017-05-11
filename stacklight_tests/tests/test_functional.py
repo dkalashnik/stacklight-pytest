@@ -6,7 +6,6 @@ import time
 import pytest
 import yaml
 
-from stacklight_tests import settings
 from stacklight_tests.tests import base_test
 from stacklight_tests import utils
 
@@ -27,7 +26,6 @@ def wait_for_resource_status(resource_client, resource,
 
 
 def determinate_components_names():
-    env_type = utils.load_config().get("env", {}).get("type", "")
     with open(utils.get_fixture(
             "components_names.yaml", ("tests",))) as names_file:
         components_names = yaml.load(names_file)
@@ -35,14 +33,8 @@ def determinate_components_names():
     # TODO(rpromyshlennikov): temporary fix: ovs service was not included,
     # because openvswitch-agent is managed by pacemaker
     # ["neutron-openvswitch-agent", ""]
-    components = components_names["fuel"]["0"]
 
-    if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("1."):
-        components = components_names["fuel"]["1"]
-
-    if env_type == "mk":
-        components = components_names["mk"]
-
+    components = components_names["mk"]
     return components
 
 
@@ -598,9 +590,6 @@ class TestFunctional(base_test.BaseLMATest):
             neutron_event_types,
             query_filter="Logger:neutron", size=500)
 
-    # This test is suitable only for fuel env,
-    # because there is no working cinder on Mk2x now
-    @pytest.mark.check_env("is_fuel")
     def test_cinder_notifications_toolchain(self):
         """Check that Cinder notifications are present in Elasticsearch
 
@@ -708,8 +697,7 @@ class TestFunctional(base_test.BaseLMATest):
                     2: (self.CRITICAL_STATUS, "CRITICAL")}
         name_in_influx, name_in_alerting, services = components
 
-        toolchain_role = self.get_lma_role_name()
-        toolchain_nodes = self.cluster.filter_by_role(toolchain_role)
+        toolchain_nodes = self.cluster.filter_by_role("monitoring")
 
         controller_nodes = self.cluster.filter_by_role(
             "controller")[:controllers_count]
@@ -736,105 +724,6 @@ class TestFunctional(base_test.BaseLMATest):
                 new_state="OK",
                 service_state_in_influx=self.OKAY_STATUS,
                 down_backends_in_haproxy=0,)
-
-    # This test is suitable only for fuel env,
-    # because there is no "/dev/mapper/mysql-root" mount point on mk2x
-    @pytest.mark.check_env("is_fuel")
-    @pytest.mark.parametrize(
-        "disk_usage_percent", [91, 96], ids=["warning", "critical"])
-    def test_toolchain_alert_node(self, disk_usage_percent):
-        """Verify that the warning alerts for nodes show up in the
-         Grafana and Nagios UI.
-
-        Scenario:
-            1. Connect to one of the controller nodes using ssh and
-               run:
-                    fallocate -l $(df | grep /dev/mapper/mysql-root
-                    | awk '{ printf("%.0f\n", 1024 * ((($3 + $4) * 96
-                     / 100) - $3))}') /var/lib/mysql/test
-            2. Wait for at least 1 minute.
-            3. On Grafana, check the following items:
-                    - the box in the upper left corner of the dashboard
-                     displays 'OKAY' with an green background,
-            4. Connect to a second controller node using ssh and run:
-                    fallocate -l $(df | grep /dev/mapper/mysql-root
-                    | awk '{ printf("%.0f\n", 1024 * ((($3 + $4) * 96
-                     / 100) - $3))}') /var/lib/mysql/test
-            5. Wait for at least 1 minute.
-            6. On Grafana, check the following items:
-                    - the box in the upper left corner of the dashboard
-                     displays 'WARN' with an orange background,
-                    - an annotation telling that the service went from 'OKAY'
-                     to 'WARN' is displayed.
-            7. Check email about service state.
-            8. Run the following command on both controller nodes:
-                    rm /var/lib/mysql/test
-            9. Wait for at least 1 minutes.
-            10. On Grafana, check the following items:
-                    - the box in the upper left corner of the dashboard
-                     displays 'OKAY' with an green background,
-                    - an annotation telling that the service went from 'WARN'
-                     to 'OKAY' is displayed.
-            11. Check email about service state.
-
-        Duration 5m
-        """
-        statuses = {91: (self.WARNING_STATUS, "WARNING"),
-                    96: (self.CRITICAL_STATUS, "CRITICAL")}
-        toolchain_nodes = self.cluster.filter_by_role(
-            "infrastructure_alerting")
-        controller_nodes = self.cluster.filter_by_role(
-            "controller")[:2]
-
-        nagios_service_name = (
-            "mysql"
-            if settings.INFLUXDB_GRAFANA_PLUGIN_VERSION.startswith("0.")
-            else "global-mysql")
-
-        nagios_state = statuses[disk_usage_percent][1]
-        influx_state = statuses[disk_usage_percent][0]
-
-        mysql_fs = "/dev/mapper/mysql-root"
-        mysql_fs_alarm_test_file = "/var/lib/mysql/bigfile"
-
-        for toolchain_node in toolchain_nodes:
-            toolchain_node.os.clear_local_mail()
-
-        controller_nodes[0].os.fill_up_filesystem(
-            mysql_fs, disk_usage_percent, mysql_fs_alarm_test_file)
-
-        self.influxdb_api.check_cluster_status("mysql", self.OKAY_STATUS)
-        self.nagios_api.check_service_state_on_nagios(
-            {nagios_service_name: "OK"})
-        self.nagios_api.wait_service_state_on_nagios(
-            {"mysql-nodes.mysql-fs": nagios_state},
-            [controller_nodes[0].hostname])
-
-        controller_nodes[1].os.fill_up_filesystem(
-            mysql_fs, disk_usage_percent, mysql_fs_alarm_test_file)
-
-        self.influxdb_api.check_cluster_status("mysql", influx_state)
-        self.nagios_api.wait_service_state_on_nagios(
-            {nagios_service_name: nagios_state})
-        self.nagios_api.wait_service_state_on_nagios(
-            {"mysql-nodes.mysql-fs": nagios_state},
-            [controller_nodes[1].hostname])
-        utils.wait(
-            lambda: (
-                any(t_node.os.check_local_mail(nagios_service_name,
-                                               nagios_state)
-                    for t_node in toolchain_nodes)),
-            timeout=5 * 60, interval=15)
-
-        for node in controller_nodes:
-            node.os.clean_filesystem(mysql_fs_alarm_test_file)
-
-        self.influxdb_api.check_cluster_status("mysql", self.OKAY_STATUS)
-        utils.wait(
-            lambda: (
-                any(t_node.os.check_local_mail(nagios_service_name, "OK")
-                    for t_node in toolchain_nodes)),
-            timeout=5 * 60, interval=15)
 
     @pytest.mark.parametrize(
         "dashboard_name",
