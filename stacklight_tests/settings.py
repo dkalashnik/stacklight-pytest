@@ -21,3 +21,6 @@ CIRROS_QCOW2_URL = os.environ.get(
     "CIRROS_QCOW2_URL",
     "http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img"
 )
+
+CONFIGURE_APPS = ["nodes", "influxdb", "elasticsearch", "grafana",
+                  "nagios", "keystone", "mysql", "prometheus"]

@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from stacklight_tests import objects
+from stacklight_tests import settings
 from stacklight_tests import utils
 
 
@@ -15,17 +16,47 @@ def pytest_configure(config):
                             "to run only on env, which pass all checks")
 
 
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item):
+    """This hook adds test result info into request.node object."""
+    # execute all other hooks to obtain the report object
+    outcome = yield
+    rep = outcome.get_result()
+
+    # set a report attribute for each phase of a call, which can
+    # be "setup", "call", "teardown"
+
+    setattr(item, "rep_" + rep.when, rep)
+
+
 @pytest.fixture(scope="session")
 def env_config():
     return utils.load_config()
 
 
-@pytest.fixture(scope="session")
-def cluster(env_config):
-    nodes = env_config.get("nodes")
-    current_cluster = objects.Cluster()
+def setup_config_fixtures():
+    """Dynamically defines fixtures for all applications from config."""
+    for app in settings.CONFIGURE_APPS:
+        def get_wrapped(app_name):
+            @pytest.fixture(scope="session", name=fn_name)
+            def app_config(env_config):
+                if app_name not in env_config:
+                    pytest.skip(
+                        "Requires {} section in config".format(app_name))
+                return env_config[app_name]
+            app_config.__name__ = fn_name
+            return app_config
 
-    for node_args in nodes:
+        fn_name = "{}_config".format(app)
+        globals()[fn_name] = get_wrapped(app)
+
+setup_config_fixtures()
+
+
+@pytest.fixture(scope="session")
+def cluster(nodes_config):
+    current_cluster = objects.Cluster()
+    for node_args in nodes_config:
         current_cluster.add_host(objects.Host(**node_args))
     return current_cluster
 

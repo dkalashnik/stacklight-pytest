@@ -73,7 +73,7 @@ class TestAlerts(base_test.BaseLMATest):
     @pytest.mark.parametrize(
         "levels",
         (rabbitmq_alarms["disk"].values()), ids=rabbitmq_alarms["disk"].keys())
-    def test_check_rabbitmq_disk_alarm(self, levels):
+    def test_check_rabbitmq_disk_alarm(self, destructive, levels):
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
 
@@ -108,7 +108,7 @@ class TestAlerts(base_test.BaseLMATest):
             "rabbitmqctl environment | grep disk_free_limit | "
             "sed -r 's/}.+//' | sed 's|.*,||'")[1]
 
-        self.destructive_actions.append(lambda: controller.check_call(
+        destructive.append(lambda: controller.check_call(
             "rabbitmqctl set_disk_free_limit {}".format(default_value)))
         cmd = ("rabbitmqctl set_disk_free_limit $"
                "(df | grep {volume} | "
@@ -122,13 +122,12 @@ class TestAlerts(base_test.BaseLMATest):
             "rabbitmqctl set_disk_free_limit {}".format(default_value))
 
         check_alarm(value=self.OKAY_STATUS)
-        self.destructive_actions = []
 
     @pytest.mark.parametrize(
         "levels",
         (rabbitmq_alarms["memory"].values()),
         ids=rabbitmq_alarms["memory"].keys())
-    def test_check_rabbitmq_memory_alarm(self, levels):
+    def test_check_rabbitmq_memory_alarm(self, destructive, levels):
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
 
@@ -165,7 +164,7 @@ class TestAlerts(base_test.BaseLMATest):
             'set_vm_memory_high_watermark absolute "{memory}"'.format(
                 memory=int(mem_usage * ratio),
             ))
-        self.destructive_actions.append(
+        destructive.append(
             lambda: controller.os.check_call(
                 "rabbitmqctl set_vm_memory_high_watermark {}".format(
                     default_value)))
@@ -176,7 +175,6 @@ class TestAlerts(base_test.BaseLMATest):
             "rabbitmqctl set_vm_memory_high_watermark {}".format(default_value)
         )
         check_alarm(value=self.OKAY_STATUS)
-        self.destructive_actions = []
 
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
@@ -605,7 +603,7 @@ class TestAlerts(base_test.BaseLMATest):
         "entities",
         determinate_services().values(),
         ids=determinate_services().keys())
-    def test_services_alarms(self, entities):
+    def test_services_alarms(self, destructive, entities):
         """Check sanity services alarms.
 
         Scenario:
@@ -647,10 +645,9 @@ class TestAlerts(base_test.BaseLMATest):
         service, check = entities
         host = find_server(service)
         self.influxdb_api.check_status(check, host.hostname, status_operating)
-        self.destructive_actions.append(
-            lambda: host.os.manage_service(service, "start"))
+        destructive.append(lambda: host.os.manage_service(service, "start"))
         if service == 'rabbitmq-server':
-            self.destructive_actions.append(
+            destructive.append(
                 lambda: host.os.check_call('rabbitmqctl force_boot'))
         host.os.manage_service(service, "stop")
         self.influxdb_api.check_status(check, host.hostname, status_down)
@@ -658,10 +655,9 @@ class TestAlerts(base_test.BaseLMATest):
             host.os.check_call('rabbitmqctl force_boot')
         host.os.manage_service(service, "start")
         self.influxdb_api.check_status(check, host.hostname, status_operating)
-        self.destructive_actions = []
 
     @pytest.mark.check_env('is_mk')
-    def test_rabbitmq_pacemaker_alarms(self):
+    def test_rabbitmq_pacemaker_alarms(self, destructive):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
         Scenario:
@@ -688,9 +684,8 @@ class TestAlerts(base_test.BaseLMATest):
         check_status(expected_status=self.OKAY_STATUS)
 
         for ctl, status in zip(controllers, statuses):
-            self.destructive_actions.append(
-                lambda: ctl.os.manage_service(service, 'start'))
-            self.destructive_actions.append(
+            destructive.append(lambda: ctl.os.manage_service(service, 'start'))
+            destructive.append(
                 lambda: ctl.os.check_call('rabbitmqctl force_boot'))
             ctl.os.manage_service(service, 'stop')
             check_status(expected_status=status)
@@ -701,10 +696,9 @@ class TestAlerts(base_test.BaseLMATest):
             time.sleep(10)
 
         check_status(expected_status=self.OKAY_STATUS)
-        self.destructive_actions = []
 
     @pytest.mark.check_env('is_fuel')
-    def test_rabbitmq_pacemaker_alarms_fuel(self):
+    def test_rabbitmq_pacemaker_alarms_fuel(self, destructive):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
         Scenario:
@@ -734,8 +728,7 @@ class TestAlerts(base_test.BaseLMATest):
         check_alarms(value=self.OKAY_STATUS)
 
         for ctl, status in zip(controllers, statuses):
-            self.destructive_actions.append(
-                lambda: ctl.os.manage_service(service, 'start'))
+            destructive.append(lambda: ctl.os.manage_service(service, 'start'))
             ctl.os.manage_service(service, 'stop')
             check_alarms(value=status)
 
@@ -743,7 +736,6 @@ class TestAlerts(base_test.BaseLMATest):
             ctl.os.manage_service(service, 'start')
 
         check_alarms(value=self.OKAY_STATUS)
-        self.destructive_actions = []
 
     @pytest.mark.check_env('is_mk')
     def test_rabbit_queue(self):

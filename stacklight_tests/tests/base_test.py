@@ -99,17 +99,6 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             domain=auth["access"].get("domain", "Default"),
         )
 
-    def setup_method(self):
-        self.destructive_actions = []
-
-    def teardown_method(self):
-        for recovery_method in self.destructive_actions:
-            try:
-                recovery_method()
-            except Exception as e:
-                logger.error("Recovery failed: {} with exception: {}".format(
-                    recovery_method, e))
-
     def get_generic_alarm_checker(self, node, source, node_role,
                                   alarm_type="node"):
         if not self.is_mk:
