@@ -90,16 +90,16 @@ class PrometheusQueryAlertClient(AlertBehaviorMixin,
         :raises: ValueError in case of two alerts are equal with different time
          or if in the same time we have different values.
         """
-        uniqual_alerts = {}
+        unique_alerts = {}
         for alert in alerts:
-            if alert not in uniqual_alerts:
-                uniqual_alerts[alert] = alert
-            elif uniqual_alerts[alert].time != alert.time:
+            if alert not in unique_alerts:
+                unique_alerts[alert] = alert
+            elif unique_alerts[alert].time != alert.time:
                 raise ValueError("Unresolved merge situation.")
-            elif uniqual_alerts[alert].value != alert.value:
-                uniqual_alerts[alert].value = (
-                    (uniqual_alerts[alert].value + alert.value) / 2)
-        return uniqual_alerts.values()
+            elif unique_alerts[alert].value != alert.value:
+                unique_alerts[alert].value = (
+                    (unique_alerts[alert].value + alert.value) / 2)
+        return unique_alerts.values()
 
     def list_alerts(self):
         data = self.get_query("ALERTS")
