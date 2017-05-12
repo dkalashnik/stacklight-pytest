@@ -48,6 +48,16 @@ class ElasticSearchApi(object):
             lambda: _verify_notifications(expected_notifications),
             timeout=timeout, interval=interval, timeout_msg=msg)
 
+    def log_is_presented(self, query_filter, time_range="now-1m"):
+        # type: (str) -> None
+        res = self.query_elasticsearch(
+            query_filter=query_filter, time_range=time_range)
+        return len(res['hits']['hits']) > 0
+
+    def get_absent_programs_for_group(self, program_group, **kwargs):
+        return {program for program in program_group
+                if not self.log_is_presented(program, **kwargs)}
+
 
 class KibanaApi(object):
     def __init__(self, host, port=5601):
