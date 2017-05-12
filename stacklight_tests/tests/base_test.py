@@ -90,19 +90,3 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             cert=False,
             domain=auth.get("domain", "Default"),
         )
-
-    def check_service_installed(self, name, role=None):
-        """Checks that service is installed on nodes with provided role."""
-        if role is None:
-            role = "monitoring"
-        nodes = self.cluster.filter_by_role(role)
-        for node in nodes:
-            node.os.check_package_installed(name)
-
-    def check_service_running(self, name, role=None):
-        """Checks that service is running on nodes with provided role."""
-        if role is None:
-            role = "monitoring"
-        nodes = self.cluster.filter_by_role(role)
-        for node in nodes:
-            node.os.manage_service(name, "status")

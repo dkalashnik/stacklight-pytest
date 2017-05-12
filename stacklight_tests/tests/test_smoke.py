@@ -1,11 +1,29 @@
 import pytest
 
-from stacklight_tests.tests import base_test
+from stacklight_tests.clients import influxdb_grafana_api
 
 
-class TestSmoke(base_test.BaseLMATest):
+def check_service_installed(cluster, name, role=None):
+    """Checks that service is installed on nodes with provided role."""
+    if role is None:
+        role = "monitoring"
+    nodes = cluster.filter_by_role(role)
+    for node in nodes:
+        node.os.check_package_installed(name)
 
-    def test_influxdb_installed(self):
+
+def check_service_running(cluster, name, role=None):
+    """Checks that service is running on nodes with provided role."""
+    if role is None:
+        role = "monitoring"
+    nodes = cluster.filter_by_role(role)
+    for node in nodes:
+        node.os.manage_service(name, "status")
+
+
+class TestSmoke(object):
+
+    def test_influxdb_installed(self, cluster, influxdb_client):
         """Smoke test that checks basic features of InfluxDb.
 
         Scenario:
@@ -16,12 +34,12 @@ class TestSmoke(base_test.BaseLMATest):
         Duration 1m
         """
         service = "influxdb"
-        self.check_service_installed(service)
-        self.check_service_running(service)
-        measurements, env_name = self.influxdb_api.check_influxdb_online()
+        check_service_installed(cluster, service)
+        check_service_running(cluster, service)
+        measurements, env_name = influxdb_client.check_influxdb_online()
         assert measurements and env_name
 
-    def test_grafana_installed(self):
+    def test_grafana_installed(self, cluster, grafana_client):
         """Smoke test that checks basic features of Grafana.
 
         Scenario:
@@ -32,11 +50,11 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 1m
         """
-        self.check_service_installed("grafana")
-        self.check_service_running("grafana-server")
-        self.grafana_api.check_grafana_online()
+        check_service_installed(cluster, "grafana")
+        check_service_running(cluster, "grafana-server")
+        grafana_client.check_grafana_online()
 
-    def test_nagios_installed(self, destructive):
+    def test_nagios_installed(self, destructive, nagios_client):
         """Smoke test that checks basic features of Nagios.
 
         Scenario:
@@ -46,23 +64,23 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 1m
         """
-        hosts = self.nagios_api.get_all_nodes_statuses()
-        services = self.nagios_api.get_all_services_statuses()
+        hosts = nagios_client.get_all_nodes_statuses()
+        services = nagios_client.get_all_services_statuses()
         assert hosts and services
         # Negative testing
-        origin_password = self.nagios_api.password
+        origin_password = nagios_client.password
 
         def set_origin_password():
-            self.nagios_api.password = origin_password
-            self.nagios_api.nagios_url = self.nagios_api.format_url()
+            nagios_client.password = origin_password
+            nagios_client.nagios_url = nagios_client.format_url()
         destructive.append(set_origin_password)
-        self.nagios_api.password = "rogue"
-        self.nagios_api.nagios_url = self.nagios_api.format_url()
-        for page in self.nagios_api.pages.keys():
-            self.nagios_api.get_page(page, expected_codes=(401,))
+        nagios_client.password = "rogue"
+        nagios_client.nagios_url = nagios_client.format_url()
+        for page in nagios_client.pages.keys():
+            nagios_client.get_page(page, expected_codes=(401,))
         set_origin_password()
 
-    def test_elasticsearch_installed(self):
+    def test_elasticsearch_installed(self, cluster, es_client):
         """Smoke test that checks basic features of Elasticsearch.
 
         Scenario:
@@ -75,18 +93,18 @@ class TestSmoke(base_test.BaseLMATest):
         Duration 1m
         """
         service = "elasticsearch"
-        self.check_service_installed(service)
-        self.check_service_running(service)
-        log_result = self.elasticsearch_api.query_elasticsearch(size=10)
+        check_service_installed(cluster, service)
+        check_service_running(cluster, service)
+        log_result = es_client.query_elasticsearch(size=10)
         log_failed_shards = log_result["_shards"]["failed"]
         log_hits = log_result["hits"]
-        notify_result = self.elasticsearch_api.query_elasticsearch(size=10)
+        notify_result = es_client.query_elasticsearch(size=10)
         notification_failed_shards = notify_result["_shards"]["failed"]
         notification_hits = notify_result["hits"]
         assert ((not log_failed_shards) and log_hits and
                 (not notification_failed_shards) and notification_hits)
 
-    def test_kibana_installed(self):
+    def test_kibana_installed(self, cluster, kibana_client):
         """Smoke test that checks basic features of Kibana.
 
         Scenario:
@@ -96,12 +114,13 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 5m
         """
-        self.check_service_installed("kibana")
-        self.check_service_running("kibana")
-        self.kibana_api.check_logs_dashboard()
-        self.kibana_api.check_internal_kibana_api()
+        service = "kibana"
+        check_service_installed(cluster, service)
+        check_service_running(cluster, service)
+        kibana_client.check_logs_dashboard()
+        kibana_client.check_internal_kibana_api()
 
-    def test_display_grafana_dashboards_toolchain(self):
+    def test_display_grafana_dashboards_toolchain(self, grafana_client):
         """Verify that the dashboards show up in the Grafana UI.
 
         Scenario:
@@ -126,18 +145,18 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 1m
         """
-        self.grafana_api.check_grafana_online()
+        grafana_client.check_grafana_online()
         dashboard_names = (
-            base_test.influxdb_grafana_api.get_all_grafana_dashboards_names())
+            influxdb_grafana_api.get_all_grafana_dashboards_names())
         absent_dashboards = set()
         for name in dashboard_names:
-            if not self.grafana_api.is_dashboard_exists(name):
+            if not grafana_client.is_dashboard_exists(name):
                 absent_dashboards.add(name)
         msg = ("There is not enough panels in available panels, "
                "panels that are not presented: {}")
         assert not absent_dashboards, msg.format(absent_dashboards)
 
-    def test_openstack_service_metrics_presented(self):
+    def test_openstack_service_metrics_presented(self, influxdb_client):
         """Verify the new metrics '<openstack._service>.api were
         created in InfluxDB.
 
@@ -170,13 +189,13 @@ class TestSmoke(base_test.BaseLMATest):
                  "where time >= now() - 1m and service = '{service}'")
         absent_services = set()
         for service in services:
-            result = self.influxdb_api.do_influxdb_query(
+            result = influxdb_client.do_influxdb_query(
                 query.format(service=service)).json()['results'][0]
             if "series" not in result:
                 absent_services.add(service)
         assert not absent_services
 
-    def test_openstack_services_alarms_presented(self):
+    def test_openstack_services_alarms_presented(self, influxdb_client):
         """Verify that alarms for ''openstack_<service>_api'' were
         created in InfluxDB.
 
@@ -211,13 +230,13 @@ class TestSmoke(base_test.BaseLMATest):
                  "and service = '{service}' ")
         absent_services = set()
         for service in services:
-            result = self.influxdb_api.do_influxdb_query(
+            result = influxdb_client.do_influxdb_query(
                 query.format(service=service)).json()['results'][0]
             if "series" not in result:
                 absent_services.add(service)
         assert not absent_services
 
-    def test_nagios_hosts_are_available_by_ssh(self):
+    def test_nagios_hosts_are_available_by_ssh(self, cluster, nagios_client):
         """Check that all nodes are tracked by Nagios via ssh.
 
         Scenario:
@@ -226,16 +245,16 @@ class TestSmoke(base_test.BaseLMATest):
 
         Duration 1m
         """
-        nodes_statuses = self.nagios_api.get_all_nodes_statuses()
-        hostnames = {host.fqdn for host in self.cluster.hosts}
+        nodes_statuses = nagios_client.get_all_nodes_statuses()
+        hostnames = {host.fqdn for host in cluster.hosts}
         absent_hostnames = hostnames - set(nodes_statuses.keys())
         assert not absent_hostnames
         assert not any([value == "DOWN" for value in nodes_statuses.values()])
 
     @pytest.mark.parametrize("tag_value", ["region", "aggregate"])
-    def test_metrics_tag(self, tag_value):
+    def test_metrics_tag(self, influxdb_client, tag_value):
         """Check that tags presented for all metrics."""
-        tag_tables = set(self.influxdb_api.get_tag_table_bindings(tag_value))
-        all_tables = set(self.influxdb_api.get_all_measurements())
+        tag_tables = set(influxdb_client.get_tag_table_bindings(tag_value))
+        all_tables = set(influxdb_client.get_all_measurements())
         absent_metrics_tables = all_tables - tag_tables
         assert not absent_metrics_tables, "Absent tables with metrics found."
