@@ -91,12 +91,6 @@ class BaseLMATest(os_clients.OSCliActionsMixin):
             domain=auth.get("domain", "Default"),
         )
 
-    def get_generic_alarm_checker(self, node, source):
-        def check_alarm(value):
-            return self.influxdb_api.check_mk_alarm(
-                member=source, warning_level=value, hostname=node.hostname)
-        return check_alarm
-
     def check_service_installed(self, name, role=None):
         """Checks that service is installed on nodes with provided role."""
         if role is None:

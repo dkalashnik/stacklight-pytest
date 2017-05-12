@@ -91,9 +91,13 @@ class TestAlerts(base_test.BaseLMATest):
 
         volume = "/dev/vda"
         source = "rabbitmq_server_disk"
-        check_alarm = self.get_generic_alarm_checker(controller, source)
+        check_alarm = functools.partial(
+            self.influxdb_api.check_mk_alarm,
+            member=source,
+            hostname=controller.hostname
+        )
 
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
         default_value = controller.check_call(
             "rabbitmqctl environment | grep disk_free_limit | "
@@ -107,12 +111,12 @@ class TestAlerts(base_test.BaseLMATest):
                "{percent} / 100) - $3))}}')")
         controller.check_call(cmd.format(volume=volume, percent=percent))
 
-        check_alarm(value=status)
+        check_alarm(warning_level=status)
 
         controller.check_call(
             "rabbitmqctl set_disk_free_limit {}".format(default_value))
 
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
     @pytest.mark.parametrize(
         "levels",
@@ -141,9 +145,13 @@ class TestAlerts(base_test.BaseLMATest):
         ratio, status = levels
 
         source = "rabbitmq_server_memory"
-        check_alarm = self.get_generic_alarm_checker(controller, source)
+        check_alarm = functools.partial(
+            self.influxdb_api.check_mk_alarm,
+            member=source,
+            hostname=controller.hostname
+        )
 
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
         default_value = controller.check_call(
             "rabbitmqctl environment | grep vm_memory_high_watermark, | "
             "sed -r 's/}.+//' | sed 's|.*,||'")[1]
@@ -159,12 +167,12 @@ class TestAlerts(base_test.BaseLMATest):
                 "rabbitmqctl set_vm_memory_high_watermark {}".format(
                     default_value)))
         controller.check_call(cmd)
-        check_alarm(value=status)
+        check_alarm(warning_level=status)
 
         controller.os.check_call(
             "rabbitmqctl set_vm_memory_high_watermark {}".format(default_value)
         )
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
     def test_check_root_fs_alarms(self):
         """Check that root-fs-warning and root-fs-critical alarms work as
@@ -185,26 +193,29 @@ class TestAlerts(base_test.BaseLMATest):
         filename = "/bigfile"
         filesystem = "/$"
 
-        check_alarm = self.get_generic_alarm_checker(
-            node=compute, source=alarm_name)
+        check_alarm = functools.partial(
+            self.influxdb_api.check_mk_alarm,
+            member=alarm_name,
+            hostname=compute.hostname
+        )
 
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
         compute.os.fill_up_filesystem(
             filesystem, self.WARNING_PERCENT, filename)
         logger.info("Checking {}-warning alarm".format(alarm_name))
-        check_alarm(value=self.WARNING_STATUS)
+        check_alarm(warning_level=self.WARNING_STATUS)
 
         compute.os.clean_filesystem(filename)
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
         compute.os.fill_up_filesystem(
             filesystem, self.CRITICAL_PERCENT, filename)
         logger.info("Checking {}-critical alarm".format(alarm_name))
-        check_alarm(value=self.CRITICAL_STATUS)
+        check_alarm(warning_level=self.CRITICAL_STATUS)
 
         compute.os.clean_filesystem(filename)
-        check_alarm(value=self.OKAY_STATUS)
+        check_alarm(warning_level=self.OKAY_STATUS)
 
     @contextlib.contextmanager
     def make_logical_db_unavailable(self, db_name, controller):
