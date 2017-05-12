@@ -69,7 +69,8 @@ class TestAlerts(base_test.BaseLMATest):
     @pytest.mark.parametrize(
         "levels",
         (rabbitmq_alarms["disk"].values()), ids=rabbitmq_alarms["disk"].keys())
-    def test_check_rabbitmq_disk_alarm(self, destructive, levels):
+    def test_check_rabbitmq_disk_alarm(self, destructive, cluster,
+                                       influxdb_client, levels):
         """Check that rabbitmq-disk-limit-warning and
            rabbitmq-disk-limit-critical alarms work as expected.
 
@@ -86,13 +87,13 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controller = self.cluster.get_random_controller()
+        controller = cluster.get_random_controller()
         percent, status = levels
 
         volume = "/dev/vda"
         source = "rabbitmq_server_disk"
         check_alarm = functools.partial(
-            self.influxdb_api.check_mk_alarm,
+            influxdb_client.check_mk_alarm,
             member=source,
             hostname=controller.hostname
         )
@@ -122,7 +123,8 @@ class TestAlerts(base_test.BaseLMATest):
         "levels",
         (rabbitmq_alarms["memory"].values()),
         ids=rabbitmq_alarms["memory"].keys())
-    def test_check_rabbitmq_memory_alarm(self, destructive, levels):
+    def test_check_rabbitmq_memory_alarm(self, destructive, cluster,
+                                         influxdb_client, levels):
         """Check that rabbitmq-memory-limit-warning and
            rabbitmq-memory-limit-critical alarms work as expected.
 
@@ -141,12 +143,12 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controller = self.cluster.get_random_controller()
+        controller = cluster.get_random_controller()
         ratio, status = levels
 
         source = "rabbitmq_server_memory"
         check_alarm = functools.partial(
-            self.influxdb_api.check_mk_alarm,
+            influxdb_client.check_mk_alarm,
             member=source,
             hostname=controller.hostname
         )
@@ -155,7 +157,7 @@ class TestAlerts(base_test.BaseLMATest):
         default_value = controller.check_call(
             "rabbitmqctl environment | grep vm_memory_high_watermark, | "
             "sed -r 's/}.+//' | sed 's|.*,||'")[1]
-        mem_usage = self.influxdb_api.get_rabbitmq_memory_usage(controller)
+        mem_usage = influxdb_client.get_rabbitmq_memory_usage(controller)
 
         cmd = (
             'rabbitmqctl '
@@ -174,7 +176,7 @@ class TestAlerts(base_test.BaseLMATest):
         )
         check_alarm(warning_level=self.OKAY_STATUS)
 
-    def test_check_root_fs_alarms(self):
+    def test_check_root_fs_alarms(self, cluster, influxdb_client):
         """Check that root-fs-warning and root-fs-critical alarms work as
            expected.
 
@@ -188,13 +190,13 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        compute = self.cluster.get_random_compute()
+        compute = cluster.get_random_compute()
         alarm_name = "linux_system_root_fs"
         filename = "/bigfile"
         filesystem = "/$"
 
         check_alarm = functools.partial(
-            self.influxdb_api.check_mk_alarm,
+            influxdb_client.check_mk_alarm,
             member=alarm_name,
             hostname=compute.hostname
         )
@@ -218,7 +220,7 @@ class TestAlerts(base_test.BaseLMATest):
         check_alarm(warning_level=self.OKAY_STATUS)
 
     @contextlib.contextmanager
-    def make_logical_db_unavailable(self, db_name, controller):
+    def make_logical_db_unavailable(self, db_name, controller, mysql_config):
         """Context manager that renames all tables in provided database
            to make it unavailable and renames it back on exit.
 
@@ -228,8 +230,8 @@ class TestAlerts(base_test.BaseLMATest):
         :type controller: nailgun node
         :returns: None, works as context manager
         """
-        user = self.config['mysql'].get('mysql_user', '')
-        password = self.config['mysql'].get('mysql_password', '')
+        user = mysql_config['mysql'].get('mysql_user', '')
+        password = mysql_config['mysql'].get('mysql_password', '')
         creds = '-u{user}  -p{password}'.format(user=user, password=password)
         cmd = (
             "mysql -AN {creds} -e "
@@ -252,7 +254,9 @@ class TestAlerts(base_test.BaseLMATest):
     @pytest.mark.parametrize(
         "entities",
         log_http_errors_entities.values(), ids=log_http_errors_entities.keys())
-    def test_logs_and_http_errors_alarms(self, entities):
+    def test_logs_and_http_errors_alarms(self, cluster, os_clients,
+                                         influxdb_client, mysql_config,
+                                         entities):
         """Check that nova-logs and nova-api-http-errors alarms work as
            expected.
 
@@ -274,15 +278,15 @@ class TestAlerts(base_test.BaseLMATest):
 
         Duration 10m
         """
-        controller = self.cluster.filter_by_role("galera.master")[0]
+        controller = cluster.filter_by_role("galera.master")[0]
         db_name = entities[0]
         method = entities[1]
         alarm_entities = entities[2:]
         results = {}
         # Pre-check that alarms are not triggered
         for alarm in alarm_entities:
-            res = self.influxdb_api.check_mk_alarm(alarm, self.OKAY_STATUS,
-                                                   reraise=False)
+            res = influxdb_client.check_mk_alarm(alarm, self.OKAY_STATUS,
+                                                 reraise=False)
             results["pre_check_{}".format(alarm)] = res.status
 
         # Every service is doing some heartbeats/checks,
@@ -290,10 +294,11 @@ class TestAlerts(base_test.BaseLMATest):
         checked_hosts = {}
 
         # Determining provoke method
-        curr_attr = self.os_clients
+        curr_attr = os_clients
         for attr in method.split("."):
             curr_attr = getattr(curr_attr, attr)
-        with self.make_logical_db_unavailable(db_name, controller):
+        with self.make_logical_db_unavailable(
+                db_name, controller, mysql_config):
             # Run provoke method several times
             for _ in range(20):
                 # List conversion is needed by heat and glance list cmd,
@@ -304,14 +309,14 @@ class TestAlerts(base_test.BaseLMATest):
                     # we passing all client errors, because they are expected
                     pass
             for alarm in alarm_entities:
-                res = self.influxdb_api.check_mk_alarm(
+                res = influxdb_client.check_mk_alarm(
                     alarm, self.WARNING_STATUS, reraise=False)
                 results["check_{}".format(alarm)] = res.status
                 checked_hosts[alarm] = res.host
 
         # Post-check that alarms returned in OK state
         for alarm in alarm_entities:
-            res = self.influxdb_api.check_mk_alarm(
+            res = influxdb_client.check_mk_alarm(
                 alarm, self.OKAY_STATUS, checked_hosts[alarm], reraise=False)
             results["post_check_{}".format(alarm)] = res.status
         failed_checks = {key for key, value in results.items() if not value}
@@ -322,7 +327,8 @@ class TestAlerts(base_test.BaseLMATest):
         "entities",
         determinate_services().values(),
         ids=determinate_services().keys())
-    def test_services_alarms(self, destructive, entities):
+    def test_services_alarms(self, destructive, cluster,
+                             influxdb_client, entities):
         """Check sanity services alarms.
 
         Scenario:
@@ -343,9 +349,9 @@ class TestAlerts(base_test.BaseLMATest):
 
         def find_server(some_service):
             if service == 'apache2':
-                return self.cluster.get_random_controller()
+                return cluster.get_random_controller()
             server = None
-            for cluster_host in self.cluster.hosts:
+            for cluster_host in cluster.hosts:
                 if cluster_host.hostname.startswith('prx'):
                     continue
                 try:
@@ -362,20 +368,21 @@ class TestAlerts(base_test.BaseLMATest):
 
         service, check = entities
         host = find_server(service)
-        self.influxdb_api.check_status(check, host.hostname, status_operating)
+        influxdb_client.check_status(check, host.hostname, status_operating)
         destructive.append(lambda: host.os.manage_service(service, "start"))
         if service == 'rabbitmq-server':
             destructive.append(
                 lambda: host.os.check_call('rabbitmqctl force_boot'))
         host.os.manage_service(service, "stop")
-        self.influxdb_api.check_status(check, host.hostname, status_down)
+        influxdb_client.check_status(check, host.hostname, status_down)
         if service == 'rabbitmq-server':
             host.os.check_call('rabbitmqctl force_boot')
         host.os.manage_service(service, "start")
-        self.influxdb_api.check_status(check, host.hostname, status_operating)
+        influxdb_client.check_status(check, host.hostname, status_operating)
 
     @pytest.mark.check_env('is_mk')
-    def test_rabbitmq_pacemaker_alarms(self, destructive):
+    def test_rabbitmq_pacemaker_alarms(self, destructive, cluster,
+                                       influxdb_client):
         """Check that rabbitmq-pacemaker-* alarms work as expected.
 
         Scenario:
@@ -391,10 +398,10 @@ class TestAlerts(base_test.BaseLMATest):
         Duration 10m
         """
         check_status = functools.partial(
-            self.influxdb_api.check_cluster_status,
+            influxdb_client.check_cluster_status,
             name="rabbitmq", interval="10s")
 
-        controllers = self.cluster.get_controllers()[:3]
+        controllers = cluster.get_controllers()[:3]
         statuses = (
             self.WARNING_STATUS, self.CRITICAL_STATUS, self.DOWN_STATUS)
         service = 'rabbitmq-server'
@@ -416,10 +423,10 @@ class TestAlerts(base_test.BaseLMATest):
         check_status(expected_status=self.OKAY_STATUS)
 
     @pytest.mark.check_env('is_mk')
-    def test_rabbit_queue(self):
-        self.influxdb_api.check_mk_alarm(
+    def test_rabbit_queue(self, cluster, influxdb_client):
+        influxdb_client.check_mk_alarm(
             'rabbitmq_server_queue', self.OKAY_STATUS)
-        controller = self.cluster.get_random_controller()
+        controller = cluster.get_random_controller()
         connection = pika.BlockingConnection(
             pika.ConnectionParameters(host=controller.hostname))
         channel = connection.channel()
@@ -430,7 +437,7 @@ class TestAlerts(base_test.BaseLMATest):
                                   routing_key='test_rabbit_queue',
                                   body='test_rabbit_queue')
         connection.close()
-        self.influxdb_api.check_mk_alarm(
+        influxdb_client.check_mk_alarm(
             'rabbitmq_server_queue', self.WARNING_STATUS)
-        self.influxdb_api.check_mk_alarm(
+        influxdb_client.check_mk_alarm(
             'rabbitmq_server_queue', self.OKAY_STATUS)
