@@ -93,3 +93,4 @@ fixtures/id_rsa
 fixtures/config.yaml*
 
 openrc
+.idea/
