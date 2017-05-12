@@ -109,3 +109,8 @@ def os_clients(keystone_config):
         domain=keystone_config.get("domain", "Default"),
     )
     return openstack_clients
+
+
+@pytest.fixture(scope="session")
+def os_actions(openstack_clients):
+    return client_manager.OSCliActions(openstack_clients)
