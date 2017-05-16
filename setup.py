@@ -10,11 +10,6 @@ def read(fname):
 
 def get_requirements_list(requirements):
     all_requirements = read(requirements)
-    # Hack needed to packaging and tox,
-    # because stable/mitaka version is not on PyPi server
-    all_requirements = [req for req in all_requirements.splitlines()
-                        if "fuelclient" not in req]
-    all_requirements.append("python-fuelclient>=9.0.0,<10.0.0")  # Apache-2.0
     return all_requirements
 
 
@@ -47,10 +42,6 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
-    ],
-    dependency_links=[
-        'git+git://github.com/openstack/python-fuelclient@stable/mitaka'
-        '#egg=python-fuelclient-9.0.2',
     ],
     install_requires=get_requirements_list('./requirements.txt'),
 )

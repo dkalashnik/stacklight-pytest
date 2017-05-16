@@ -14,21 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_all_grafana_dashboards_names():
-    env_type = utils.load_config().get("env", {}).get("type", "")
     dashboard_names = {
-        "Apache", "LMA self-monitoring",
-        "Cinder", "Elasticsearch", "Glance", "HAProxy", "Heat",
-        "Hypervisor", "InfluxDB", "Keystone", "Main",
-        "Memcached", "MySQL", "Neutron", "Nova", "RabbitMQ", "System"
+        "Cassandra", "Cinder", "Elasticsearch", "GlusterFS", "Glance",
+        "Grafana", "HAProxy", "Heat", "Hypervisor", "InfluxDB", "Keystone",
+        "Kibana", "Main", "Memcached", "MySQL", "Neutron", "Nginx", "Nova",
+        "OpenContrail", "RabbitMQ", "System"
     }
-    if env_type == "mk":
-        # Add new dashboards for mk
-        dashboard_names.update({
-            "Cassandra", "GlusterFS", "Grafana", "Kibana", "Nginx",
-            "OpenContrail"})
-        # Remove not actual dashboards for mk
-        dashboard_names.difference_update(
-            {"Apache", "LMA self-monitoring"})
 
     return {panel_name.lower().replace(" ", "-")
             for panel_name in dashboard_names}
@@ -93,25 +84,6 @@ class InfluxdbApi(object):
 
         query = "select last(value) from {table} where {filters}".format(
             table=service_type,
-            filters=" and ".join(filters))
-        self._check_influx_query_last_value(query, value)
-
-    def check_alarms(self, alarm_type, filter_value, source, hostname,
-                     value, time_interval="now() - 5m"):
-        filter_by = "node_role"
-        if alarm_type == "service":
-            filter_by = "service"
-        filters = [
-            "time >= {}".format(time_interval),
-            "{} = '{}'".format(filter_by, filter_value),
-        ]
-        if source is not None:
-            filters.append("source = '{}'".format(source))
-        if hostname is not None:
-            filters.append("hostname = '{}'".format(hostname))
-
-        query = "select last(value) from {select_from} where {filters}".format(
-            select_from="{}_status".format(alarm_type),
             filters=" and ".join(filters))
         self._check_influx_query_last_value(query, value)
 

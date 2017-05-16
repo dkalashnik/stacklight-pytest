@@ -15,7 +15,8 @@ def destructive(request):
     """
     recovery_actions = []
     yield recovery_actions
-    if request.node.rep_call.failed:
+    rep_call = getattr(request.node, "rep_call", None)
+    if rep_call is not None and rep_call.failed:
         for recovery_method in recovery_actions:
             try:
                 recovery_method()

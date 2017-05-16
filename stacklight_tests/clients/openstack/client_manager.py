@@ -219,7 +219,10 @@ class OfficialClientManager(object):
         return self._orchestration
 
 
-class OSCliActionsMixin(object):
+class OSCliActions(object):
+    def __init__(self, os_clients):
+        self.os_clients = os_clients
+
     def get_admin_tenant(self):
         return self.os_clients.auth.tenants.find(name="admin")
 
