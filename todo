@@ -11,7 +11,6 @@ TODO
 * Write Neutron agents test (l3, dhcp, etc; see PROD-8584) (Low)
 * Write Nova Aggregators' resources test (cpu, ram usage in zones; see PROD-8869) (Low)
 * Fix test naming and corresponding bonding field in Testrail (Low)
-  - Remove "toolchain" word from test names and in test_group field in Testrail
   - Write test names verifier: there should be only unique test names
     (fqtn scheme: module.Class.test) and change test_group field to fqtn
 * Adapt Testrail reporter to make the process of our testing fully automated

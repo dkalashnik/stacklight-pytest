@@ -16,7 +16,8 @@ class TestPrometheusSmoke(object):
 
 
 class TestAlertmanagerSmoke(object):
-    def test_alertmanager_endpoint_availability(self, cluster, prometheus_config):
+    def test_alertmanager_endpoint_availability(self, cluster,
+                                                prometheus_config):
         """Check that alertmanager endpoint is available.
 
         Scenario:

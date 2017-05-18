@@ -39,8 +39,7 @@ def determinate_components_names():
 
 class TestFunctional(base_test.BaseLMATest):
 
-    def test_nova_metrics_toolchain(self, os_clients, os_actions,
-                                    influxdb_client):
+    def test_nova_metrics(self, os_clients, os_actions, influxdb_client):
         """Verify that the Nova metrics are collecting.
 
         Scenario:
@@ -100,8 +99,7 @@ class TestFunctional(base_test.BaseLMATest):
             size=50)['hits']['total'] == 0, (
             "There are logs collected from irrelevant host")
 
-    def test_nova_notifications_toolchain(self, os_clients, os_actions,
-                                          es_client):
+    def test_nova_notifications(self, os_clients, os_actions, es_client):
         """Check that Nova notifications are present in Elasticsearch
 
         Scenario:
@@ -204,7 +202,7 @@ class TestFunctional(base_test.BaseLMATest):
             nova_event_types,
             query_filter="Logger:nova", size=500)
 
-    def test_glance_notifications_toolchain(self, os_clients, es_client):
+    def test_glance_notifications(self, os_clients, es_client):
         """Check that Glance notifications are present in Elasticsearch
 
         Scenario:
@@ -241,7 +239,7 @@ class TestFunctional(base_test.BaseLMATest):
             glance_event_types,
             query_filter="Logger:glance", size=500)
 
-    def test_keystone_notifications_toolchain(self, os_clients, es_client):
+    def test_keystone_notifications(self, os_clients, es_client):
         """Check that Keystone notifications are present in Elasticsearch
 
         Scenario:
@@ -283,8 +281,7 @@ class TestFunctional(base_test.BaseLMATest):
             keystone_event_types,
             query_filter="Logger:keystone", size=500)
 
-    def test_heat_notifications_toolchain(self, os_clients, os_actions,
-                                          es_client):
+    def test_heat_notifications(self, os_clients, os_actions, es_client):
         """Check that Heat notifications are present in Elasticsearch
 
         Scenario:
@@ -397,8 +394,7 @@ class TestFunctional(base_test.BaseLMATest):
             heat_event_types,
             query_filter="Logger:heat", size=500)
 
-    def test_neutron_notifications_toolchain(self, os_clients, os_actions,
-                                             es_client):
+    def test_neutron_notifications(self, os_clients, os_actions, es_client):
         """Check that Neutron notifications are present in Elasticsearch
 
         Scenario:
@@ -462,7 +458,7 @@ class TestFunctional(base_test.BaseLMATest):
             neutron_event_types,
             query_filter="Logger:neutron", size=500)
 
-    def test_cinder_notifications_toolchain(self, os_clients, es_client):
+    def test_cinder_notifications(self, os_clients, es_client):
         """Check that Cinder notifications are present in Elasticsearch
 
         Scenario:
@@ -497,9 +493,9 @@ class TestFunctional(base_test.BaseLMATest):
         ids=determinate_components_names().keys())
     @pytest.mark.parametrize(
         "controllers_count", [1, 2], ids=["warning", "critical"])
-    def test_toolchain_alert_service(self, destructive, cluster,
-                                     influxdb_client, nagios_client,
-                                     components, controllers_count):
+    def test_alert_service(self, destructive, cluster,
+                           influxdb_client, nagios_client,
+                           components, controllers_count):
         """Verify that the warning and critical alerts for services
         show up in the Grafana and Nagios UI.
 

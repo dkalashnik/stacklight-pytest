@@ -120,7 +120,7 @@ class TestSmoke(object):
         kibana_client.check_logs_dashboard()
         kibana_client.check_internal_kibana_api()
 
-    def test_display_grafana_dashboards_toolchain(self, grafana_client):
+    def test_display_grafana_dashboards(self, grafana_client):
         """Verify that the dashboards show up in the Grafana UI.
 
         Scenario:
