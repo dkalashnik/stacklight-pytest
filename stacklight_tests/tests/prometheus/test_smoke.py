@@ -14,6 +14,9 @@ class TestPrometheusSmoke(object):
         assert any([test_prometheus_container_up(node)
                     for node in prometheus_nodes])
 
+    def test_prometheus_datasource(self, prometheus_api):
+        assert prometheus_api.get_all_measurements()
+
 
 class TestAlertmanagerSmoke(object):
     def test_alertmanager_endpoint_availability(self, cluster,
