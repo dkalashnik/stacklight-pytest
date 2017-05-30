@@ -58,6 +58,9 @@ class MKConfig(object):
                 "galera.slave": "galera.slave",
                 "kubernetes.control": "k8s_controller",
                 "kubernetes.compute": "k8s_compute",
+                "grafana.client": "grafana_client",
+                "kibana.server": "elasticsearch_server",
+                "prometheus.server": "prometheus_server",
             }
             cls_based_roles = [
                 role for role_name, role in roles_mapping.items()
@@ -96,20 +99,23 @@ class MKConfig(object):
 
     def generate_elasticsearch_config(self):
         _param = (
-            self.get_application_node("elasticsearch")['parameters']['_param'])
+            self.get_application_node("elasticsearch_server")['parameters'])
+        _kibana_param = _param['kibana']['server']
         return {
-            "elasticsearch_vip": _param['kibana_elasticsearch_host'],
-            "elasticsearch_port": _param['elasticsearch_port'],
-            "kibana_port": _param['cluster_kibana_port'],
+            "elasticsearch_vip": _param['_param']['kibana_elasticsearch_host'],
+            "elasticsearch_port": _kibana_param['database']['port'],
+            "kibana_port": _kibana_param['bind']['port'],
         }
 
     def generate_grafana_config(self):
-        _param = self.get_application_node("grafana")['parameters']['_param']
+        _param = self.get_application_node("grafana_client")['parameters']
+        _client_param = _param['grafana']['client']
         return {
-            "grafana_vip": _param['grafana_influxdb_host'],
-            "grafana_port": _param['grafana_port'],
-            "grafana_username": _param['grafana_user'],
-            "grafana_password": _param['grafana_password'],
+            "grafana_vip": _client_param['server']['host'],
+            "grafana_port": _client_param['server']['port'],
+            "grafana_username": _client_param['server']['user'],
+            "grafana_password": _client_param['server']['password'],
+            "grafana_default_datasource": _client_param['datasource'].keys()[0]
         }
 
     def generate_nagios_config(self):
@@ -141,7 +147,7 @@ class MKConfig(object):
         }
 
     def generate_prometheus_config(self):
-        _param = self.get_application_node("prometheus")['parameters']
+        _param = self.get_application_node("prometheus_server")['parameters']
         expose_params = (
             _param["docker"]["client"]["stack"]["monitoring"]["service"])
         get_port = lambda x: x["ports"][0].split(":")[0]
