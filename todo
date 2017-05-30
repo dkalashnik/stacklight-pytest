@@ -18,3 +18,15 @@ TODO
 * Remove custom "env_requirements" fixture, replace it
   with module "guards" filled with functions like "stacklight_tests.conftest.is_mk"
   and pytest built-in decorator pytest.mark.skipif(condition) if it's possible. (Low)
+* Refactor "stacklight_tests.clients.influxdb_grafana_api.InfluxdbApi#do_influxdb_query"
+  method, there is a description in the code. (Medium)
+* Move "GrafanaApi" with helpers classes "Dashboard", "TemplatesTree",
+  "InfluxDBQueryBuilder", "DepNode" and "get_all_grafana_dashboards_names" function
+  from "stacklight_tests.clients.influxdb_grafana_api" module to separate one,
+  because grafana class is not coupled with one datasource now. (Medium)
+* Fix tests, that are based on "application" designated role from config,
+  use class based designation
+  (for example change role in parameter: 'cluster.filter_by_role("prometheus")'
+   to 'cluster.filter_by_role("prometheus_server")'). (Critical)
+* Isolate grafana datasource code into dedicated classes with parent Datasource class
+  to remove coupled code from InfluxDB and Prometheus clients. (Low)
