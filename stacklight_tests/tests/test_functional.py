@@ -37,6 +37,26 @@ def determinate_components_names():
     return components
 
 
+def get_all_dashboard_names_with_datasource():
+    get_all_names = influxdb_grafana_api.get_all_grafana_dashboards_names
+    dashboards = {}
+    for datasource in ("influxdb", "prometheus"):
+        dashboards.update(
+            {name: datasource for name in get_all_names(datasource)})
+    return dashboards
+
+
+@pytest.fixture(scope="module",
+                params=get_all_dashboard_names_with_datasource().items(),
+                ids=get_all_dashboard_names_with_datasource().keys())
+def dashboard_fixture(request, grafana_datasources):
+    dash_name, datasource = request.param
+    if grafana_datasources[datasource] is None:
+        pytest.skip("No datasource client({}) for dashboard: {}".format(
+            datasource, dash_name))
+    return request.param
+
+
 class TestFunctional(base_test.BaseLMATest):
 
     def test_nova_metrics(self, os_clients, os_actions, influxdb_client):
@@ -594,10 +614,7 @@ class TestFunctional(base_test.BaseLMATest):
                 service_state_in_influx=self.OKAY_STATUS,
                 down_backends_in_haproxy=0,)
 
-    @pytest.mark.parametrize(
-        "dashboard_name",
-        influxdb_grafana_api.get_all_grafana_dashboards_names())
-    def test_grafana_dashboard_panel_queries(self, dashboard_name,
+    def test_grafana_dashboard_panel_queries(self, dashboard_fixture,
                                              grafana_client):
         """Verify that the panels on dashboards show up in the Grafana UI.
 
@@ -606,8 +623,9 @@ class TestFunctional(base_test.BaseLMATest):
 
         Duration 5m
         """
+        dashboard_name, datasource = dashboard_fixture
         grafana_client.check_grafana_online()
-        dashboard = grafana_client.get_dashboard(dashboard_name)
+        dashboard = grafana_client.get_dashboard(dashboard_name, datasource)
         result = dashboard.classify_all_dashboard_queries()
         ok_panels, partially_ok_panels, no_table_panels, failed_panels = result
         fail_msg = (

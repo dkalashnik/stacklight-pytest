@@ -10,11 +10,8 @@ from stacklight_tests.clients.prometheus import prometheus_client
 
 @pytest.fixture(scope="session")
 def prometheus_api(prometheus_config):
-    api_client = prometheus_client.PrometheusClient(
-        "http://{0}:{1}/".format(
-            prometheus_config["prometheus_vip"],
-            prometheus_config["prometheus_server_port"])
-    )
+    api_client = prometheus_client.get_prometheus_client_from_config(
+        prometheus_config)
     return api_client
 
 
@@ -57,24 +54,32 @@ def nagios_client(nagios_config):
 
 @pytest.fixture(scope="session")
 def influxdb_client(influxdb_config):
-    influxdb_api = influxdb_grafana_api.InfluxdbApi(
-        address=influxdb_config["influxdb_vip"],
-        port=influxdb_config["influxdb_port"],
-        username=influxdb_config["influxdb_username"],
-        password=influxdb_config["influxdb_password"],
-        db_name=influxdb_config["influxdb_db_name"]
-    )
+    influxdb_api = influxdb_grafana_api.get_influxdb_client_from_config(
+        influxdb_config)
     return influxdb_api
 
 
 @pytest.fixture(scope="session")
-def grafana_client(grafana_config, influxdb_client):
+def grafana_datasources(env_config):
+    datasources = {"influxdb": None, "prometheus": None}
+    get_clients_fn = {
+        "influxdb": influxdb_grafana_api.get_influxdb_client_from_config,
+        "prometheus": prometheus_client.get_prometheus_client_from_config}
+    for datasource in datasources.keys():
+        if datasource in env_config:
+            datasources[datasource] = get_clients_fn[datasource](
+                env_config[datasource])
+    return datasources
+
+
+@pytest.fixture(scope="session")
+def grafana_client(grafana_config, grafana_datasources):
     grafana_api = influxdb_grafana_api.GrafanaApi(
         address=grafana_config["grafana_vip"],
         port=grafana_config["grafana_port"],
         username=grafana_config["grafana_username"],
         password=grafana_config["grafana_password"],
-        influxdb=influxdb_client,
+        datasources=grafana_datasources,
     )
     return grafana_api
 
