@@ -13,16 +13,32 @@ check_http_get_response = utils.check_http_get_response
 logger = logging.getLogger(__name__)
 
 
-def get_all_grafana_dashboards_names():
-    dashboard_names = {
+def get_all_grafana_dashboards_names(datasource=None):
+    dashboards_influx = {
         "Cassandra", "Cinder", "Elasticsearch", "GlusterFS", "Glance",
         "Grafana", "HAProxy", "Heat", "Hypervisor", "InfluxDB", "Keystone",
         "Kibana", "Main", "Memcached", "MySQL", "Neutron", "Nginx", "Nova",
         "OpenContrail", "RabbitMQ", "System"
     }
+    dashboards_prometheus = {
+        "Calico cluster monitoring (via Prometheus)",
+        "Kubernetes App Metrics",
+        "Kubernetes cluster monitoring (via Prometheus)",
+        "Prometheus Performances"
+    }
 
-    return {panel_name.lower().replace(" ", "-")
-            for panel_name in dashboard_names}
+    dashboards = {
+        "prometheus": dashboards_prometheus,
+        "influxdb": dashboards_influx
+    }
+    if datasource is None:
+        dashboard_names = dashboards_influx | dashboards_prometheus
+    else:
+        dashboard_names = dashboards[datasource]
+    return {
+        panel_name.lower().replace(" ", "-").replace("(", "").replace(")", "")
+        for panel_name in dashboard_names
+    }
 
 
 class InfluxdbApi(object):
@@ -68,6 +84,17 @@ class InfluxdbApi(object):
                 "q": query})
         logger.debug(response.json())
         return response
+
+    def do_query(self, query, **kwargs):
+        """Temporary function to do "clean" query and return values themselves.
+
+        :raises KeyError
+        """
+        kwargs.pop("regex")
+        # TODO(rpromyshlennikov): refactor "do_influxdb_query":
+        # rename to "do_query" and do return .json()["results"][0]... as here.
+        return self.do_influxdb_query(
+            query, **kwargs).json()["results"][0]["series"][0]["values"]
 
     def check_influxdb_online(self):
         measurements = self.get_all_measurements()
@@ -190,9 +217,19 @@ class InfluxdbApi(object):
         return tables
 
 
+def get_influxdb_client_from_config(config):
+    influxdb_api = InfluxdbApi(
+        address=config["influxdb_vip"],
+        port=config["influxdb_port"],
+        username=config["influxdb_username"],
+        password=config["influxdb_password"],
+        db_name=config["influxdb_db_name"]
+    )
+    return influxdb_api
+
+
 class InfluxDBQueryBuilder(object):
     def __init__(self, source):
-        self.target = source
         self.tags = source["tags"]
         self.select = source["select"]
         self.policy = source.get("policy", "default")
@@ -310,17 +347,17 @@ class DepNode(object):
 
 
 class TemplatesTree(object):
-    def __init__(self, queries, influxdb):
+    def __init__(self, queries, datasource):
         self.queries = queries
         self.default_templates = {
             "$interval": "1m",
             "$timeFilter": "time > now() - 1h",
         }
         self.dependencies = {
-            k: self.parse_dependencies(v) for k, v in self.queries.items()
+            k: self.parse_dependencies(v) for k, (v, _) in self.queries.items()
         }
-        self._compile_query = influxdb.compile_query
-        self._do_influxdb_query = influxdb.do_influxdb_query
+        self._compile_query = datasource.compile_query
+        self._do_query = datasource.do_query
 
         self.nodes_by_level = collections.defaultdict(set)
         self.levels_by_name = collections.OrderedDict()
@@ -355,10 +392,9 @@ class TemplatesTree(object):
             self.levels_by_name[template] = curr_level
 
     def _query_values_for_template(self, template, substitutions):
-        query = self._compile_query(self.queries[template], substitutions)
-        result = self._do_influxdb_query(query).json()
+        query = self._compile_query(self.queries[template][0], substitutions)
         try:
-            values = result["results"][0]["series"][0]["values"]
+            values = self._do_query(query, regex=self.queries[template][1])
         except KeyError:
             values = []
         return values
@@ -368,10 +404,10 @@ class TemplatesTree(object):
         parent = None
         values = self._query_values_for_template(dep_name, {})
         for value in values:
-            self.add_template(value[1], dep_name, parent)
+            self.add_template(value, dep_name, parent)
 
     def _build(self):
-        """Fill tree with all possible values for templates_tree.
+        """Fill tree with all possible values for _templates_tree.
 
         For example:
                      mkX-lab-name.local
@@ -393,7 +429,7 @@ class TemplatesTree(object):
                 substitutions = parent.get_full_template()
                 values = self._query_values_for_template(name, substitutions)
                 for value in values:
-                    self.add_template(value[1], name, parent)
+                    self.add_template(value, name, parent)
 
     def get_nodes_on_level(self, level):
         return self.nodes_by_level[level]
@@ -412,8 +448,11 @@ class TemplatesTree(object):
                 if node.name in dependencies]
 
     def add_template(self, value, name, parent):
+        tpl = value
+        if not isinstance(tpl, (str, unicode)):
+            tpl = tpl[1]
         dependencies = self.dependencies[name]
-        new_node = DepNode(value, name, parent, dependencies)
+        new_node = DepNode(tpl, name, parent, dependencies)
         self.nodes_by_level[new_node.level].add(new_node)
 
     def get_all_templates_for_query(self, query):
@@ -435,12 +474,12 @@ class TemplatesTree(object):
 
 
 class Dashboard(object):
-    def __init__(self, dash_dict, influxdb):
+    def __init__(self, dash_dict, datasource):
         self.name = dash_dict["meta"]["slug"]
         self.dash_dict = dash_dict
-        self._influxdb_api = influxdb
-        self.templates_tree = self.get_templates_tree()
-        self.available_measurements = self._influxdb_api.get_all_measurements()
+        self._datasource = datasource
+        self._templates_tree = self.get_templates_tree()
+        self.available_measurements = self._datasource.get_all_measurements()
 
     def __repr__(self):
         return "{}: {}".format(self.__class__, self.name)
@@ -453,18 +492,20 @@ class Dashboard(object):
 
     def get_templates_tree(self):
         template_queries = {
-            "${}".format(item["name"]): item["query"]
+            "${}".format(item["name"]): (item["query"], item["regex"])
             for item in self.dash_dict["dashboard"]["templating"]["list"]
         }
-        return TemplatesTree(template_queries, self._influxdb_api)
+        return TemplatesTree(template_queries, self._datasource)
 
     def get_all_templates_for_query(self, query):
-        return self.templates_tree.get_all_templates_for_query(query)
+        return self._templates_tree.get_all_templates_for_query(query)
 
     @staticmethod
     def build_query(target):
         if target.get("rawQuery"):
             return target["query"]
+        if target.get("expr"):
+            return target["expr"]
         return InfluxDBQueryBuilder(target).render_query()
 
     def get_panel_queries(self):
@@ -474,7 +515,7 @@ class Dashboard(object):
             for target in panel.get("targets", []):
                 query = self.build_query(target)
                 table = target.get(
-                    "measurement", self._influxdb_api.parse_measurement(query))
+                    "measurement", self._datasource.parse_measurement(query))
                 query_name = "{}:{}->{}->RefId:{}".format(
                     panel["id"], panel_name, table, target.get("refId", "A"))
                 panel_queries[query_name] = query, table
@@ -486,14 +527,15 @@ class Dashboard(object):
         results = collections.defaultdict(list)
         possible_templates = self.get_all_templates_for_query(raw_query)
         for template in possible_templates:
-            query = self._influxdb_api.compile_query(raw_query, template)
-            raw_result = self._influxdb_api.do_influxdb_query(query).json()
+            query = self._datasource.compile_query(raw_query, template)
             try:
-                result = raw_result["results"][0]
-                assert result["series"][0]["values"]
+                result = self._datasource.do_query(query)
+                if not result:
+                    raise ValueError
                 results["ok"].append(template)
-            except KeyError:
-                results["failed"].append((template, raw_result))
+            except (KeyError, ValueError):
+                results["failed"].append(template)
+
         if len(results["ok"]) == len(possible_templates):
             return "ok", raw_query
         if len(results["failed"]) == len(possible_templates):
@@ -510,7 +552,8 @@ class Dashboard(object):
 
 
 class GrafanaApi(object):
-    def __init__(self, address, port, username, password, influxdb, tls=False):
+    def __init__(self, address, port, username, password, datasources,
+                 tls=False):
         super(GrafanaApi, self).__init__()
         self.address = address
         self.port = port
@@ -520,7 +563,7 @@ class GrafanaApi(object):
         scheme = "https" if tls else "http"
         self.grafana_api_url = "{scheme}://{host}:{port}/api".format(
             scheme=scheme, host=address, port=port)
-        self._influxdb_api = influxdb
+        self._datasources = datasources
 
     def get_api_url(self, resource=""):
         return "{}{}".format(self.grafana_api_url, resource)
@@ -546,17 +589,17 @@ class GrafanaApi(object):
         else:
             response.raise_for_status()
 
-    def get_dashboard(self, name):
+    def get_dashboard(self, name, datasource_type):
         raw_dashboard = self._get_raw_dashboard(name)
         if raw_dashboard:
-            return Dashboard(raw_dashboard.json(), self._influxdb_api)
+            return Dashboard(raw_dashboard.json(),
+                             self._datasources[datasource_type])
         return None
 
-    def get_all_dashboards(self):
+    def get_all_dashboards_names(self):
         search_url = self.get_api_url("/search")
         result = check_http_get_response(search_url, auth=self.auth)
-        return (self.get_dashboard(dash["uri"].replace("db/", ""))
-                for dash in result.json())
+        return [dash["uri"].replace("db/", "") for dash in result.json()]
 
     def is_dashboard_exists(self, name):
         if self._get_raw_dashboard(name):

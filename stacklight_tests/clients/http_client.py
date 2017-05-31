@@ -18,7 +18,9 @@ class HttpClient(object):
         self.base_url = base_url
 
     def request(self, url, method, headers=None, body=None, **kwargs):
-        logger.debug("Sending request to: {}".format(url))
+        logger.debug(
+            "Sending request to: {}, body: {}, headers: {}, kwargs: {}".format(
+                url, body, headers, kwargs))
         if headers is None:
             headers = {'Content-Type': 'application/json'}
 
@@ -28,7 +30,7 @@ class HttpClient(object):
 
         if not r.ok:
             raise requests.HTTPError(r.content)
-
+        logger.debug(r.content)
         return r.headers, r.content
 
     def post(self, url, body=None, **kwargs):
