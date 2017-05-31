@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from stacklight_tests import utils
+from stacklight_tests.tests.test_functional import wait_for_resource_status
 
 logger = logging.getLogger(__name__)
 
@@ -99,3 +100,92 @@ class TestTelegrafMetrics(object):
             lambda: _verify_notifications(
                 metrics, '{'+'__name__=~"^{}.*"'.format(target)+'}'),
             timeout=5 * 60, interval=10, timeout_msg=msg)
+
+    def check_openstack_metrics(self, prometheus_api, query, value, msg):
+        def _verify_notifications(q, v):
+            output = prometheus_api.get_query(q)
+            logger.info("Check {} in {}".format(v, output))
+            return v in output[0]["value"]
+        utils.wait(
+            lambda: _verify_notifications(query, str(value)),
+            interval=10, timeout=2 * 60, timeout_msg=msg
+        )
+
+    def test_glance_metrics(self, destructive, prometheus_api, os_clients):
+        image_name = utils.rand_name("image-")
+        client = os_clients.image
+        image = client.images.create(
+            name=image_name,
+            container_format="bare",
+            disk_format="raw",
+            visibility="public")
+        client.images.upload(image.id, "dummy_data")
+        wait_for_resource_status(client.images, image.id, "active")
+        destructive.append(lambda: client.images.delete(image.id))
+
+        images_count = len([im for im in client.images.list()])
+        images_size = sum([im["size"] for im in client.images.list()])
+
+        count_query = ('{__name__="openstack_glance_images",'
+                       'visibility="public",status="active"}')
+        err_count_msg = "Incorrect image count in metric {}".format(count_query)
+        self.check_openstack_metrics(
+            prometheus_api, count_query, images_count, err_count_msg)
+
+        size_query = ('{__name__="openstack_glance_images_size",'
+                      'visibility="public", status="active"}')
+        error_size_msg = "Incorrect image size in metric {}".format(size_query)
+        self.check_openstack_metrics(
+            prometheus_api, size_query, images_size, error_size_msg)
+
+        client.images.delete(image.id)
+        utils.wait(
+            lambda: (image.id not in [im["id"] for im in client.images.list()])
+        )
+
+    def test_keystone_metrics(self, prometheus_api, os_clients):
+        client = os_clients.auth
+
+        tenants = client.tenants.list()
+        tenants_query = '{__name__="openstack_keystone_tenants_total"}'
+        self.check_openstack_metrics(
+            prometheus_api, tenants_query, len(tenants),
+            "Incorrect tenant count in metric {}".format(tenants_query))
+        enabled_tenants_query = 'openstack_keystone_tenants{state="enabled"}'
+        self.check_openstack_metrics(
+            prometheus_api, enabled_tenants_query,
+            len(filter(lambda x: x.enabled, tenants)),
+            "Incorrect enabled tenant count in metric {}".format(
+                enabled_tenants_query))
+        disabled_tenants_query = 'openstack_keystone_tenants{state="disabled"}'
+        self.check_openstack_metrics(
+            prometheus_api, disabled_tenants_query,
+            len(filter(lambda x: not x.enabled, tenants)),
+            "Incorrect disabled tenant count in metric {}".format(
+                disabled_tenants_query))
+
+        roles_count = len(client.roles.list())
+        roles_query = '{__name__="openstack_keystone_roles_roles"}'
+        err_roles_count_msg = ("Incorrect roles count in "
+                               "metric {}".format(roles_query))
+        self.check_openstack_metrics(prometheus_api, roles_query,
+                                     roles_count, err_roles_count_msg)
+
+        users = client.users.list()
+        users_query = '{__name__="openstack_keystone_users_total"}'
+        self.check_openstack_metrics(
+            prometheus_api, users_query, len(users),
+            "Incorrect user count in metric {}".format(users_query))
+
+        enabled_users_query = 'openstack_keystone_users{state="enabled"}'
+        self.check_openstack_metrics(
+            prometheus_api, enabled_users_query,
+            len(filter(lambda x: x.enabled, users)),
+            "Incorrect enabled user count in metric {}".format(
+                enabled_users_query))
+        disabled_users_query = 'openstack_keystone_users{state="disabled"}'
+        self.check_openstack_metrics(
+            prometheus_api, disabled_users_query,
+            len(filter(lambda x: not x.enabled, users)),
+            "Incorrect disabled user count in metric {}".format(
+                disabled_users_query))
