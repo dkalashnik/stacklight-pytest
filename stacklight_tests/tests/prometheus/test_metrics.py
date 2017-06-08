@@ -189,3 +189,121 @@ class TestTelegrafMetrics(object):
             len(filter(lambda x: not x.enabled, users)),
             "Incorrect disabled user count in metric {}".format(
                 disabled_users_query))
+
+    def test_neutron_metrics(self, prometheus_api, os_clients):
+        client = os_clients.network
+        net_count = len(client.list_networks()["networks"])
+        net_query = '{__name__="openstack_neutron_networks_total"}'
+        net_err_msg = "Incorrect net count in metric {}".format(net_query)
+        self.check_openstack_metrics(
+            prometheus_api, net_query, net_count, net_err_msg)
+
+        subnet_count = len(client.list_subnets()["subnets"])
+        subnet_query = '{__name__="openstack_neutron_subnets_total"}'
+        subnet_err_msg = "Incorrect subnet count in metric {}".format(
+            subnet_query)
+        self.check_openstack_metrics(
+            prometheus_api, subnet_query, subnet_count, subnet_err_msg)
+
+        flip_count = len(client.list_floatingips()["floatingips"])
+        flip_query = '{__name__="openstack_neutron_floatingips_total"}'
+        flip_err_msg = "Incorrect floating ip count in metric {}".format(
+            flip_query)
+        self.check_openstack_metrics(
+            prometheus_api, flip_query, flip_count, flip_err_msg)
+
+        router_count = len(client.list_routers()["routers"])
+        router_query = '{__name__="openstack_neutron_routers_total"}'
+        router_err_msg = "Incorrect router count in metric {}".format(
+            router_query)
+        self.check_openstack_metrics(
+            prometheus_api, router_query, router_count, router_err_msg)
+
+        active_router_count = len(filter(lambda x: x["status"] == "ACTIVE",
+                                         client.list_routers()["routers"]))
+        active_router_query = 'openstack_neutron_routers{state="active"}'
+        active_router_err_msg = ("Incorrect active router count in metric "
+                                 "{}".format(active_router_query))
+        self.check_openstack_metrics(
+            prometheus_api, active_router_query, active_router_count,
+            active_router_err_msg)
+
+        port_count = len(client.list_ports()["ports"])
+        port_query = '{__name__="openstack_neutron_ports_total"}'
+        port_err_msg = ("Incorrect port count in metric {}".format(port_query))
+        self.check_openstack_metrics(
+            prometheus_api, port_query, port_count, port_err_msg)
+
+    def test_cinder_metrics(self, destructive, prometheus_api, os_clients):
+        volume_name = utils.rand_name("volume-")
+        client = os_clients.volume
+        volume = client.volumes.create(size=1, name=volume_name)
+        wait_for_resource_status(client.volumes, volume.id, "error")
+        destructive.append(lambda: client.volume.delete(volume))
+
+        volumes_count = len([vol for vol in client.volumes.list()])
+        volumes_size = sum([vol.size for vol in client.volumes.list()]) * 10**9
+
+        count_query = ('{__name__="openstack_cinder_volumes",'
+                       'status="error"}')
+        err_count_msg = "Incorrect volume count in metric {}".format(
+            count_query)
+        self.check_openstack_metrics(
+            prometheus_api, count_query, volumes_count, err_count_msg)
+
+        size_query = ('{__name__="openstack_cinder_volumes_size",'
+                      'status="error"}')
+        error_size_msg = "Incorrect volume size in metric {}".format(
+            size_query)
+        self.check_openstack_metrics(
+            prometheus_api, size_query, volumes_size, error_size_msg)
+
+        client.volumes.delete(volume)
+        utils.wait(
+            lambda: (volume.id not in [v.id for v in client.volumes.list()])
+        )
+
+    def test_nova_telegraf_metrics(self, prometheus_api, os_clients):
+        client = os_clients.compute
+
+        def get_servers_count(st):
+            return len(filter(
+                lambda x: x.status == st, client.servers.list()))
+
+        err_msg = "Incorrect servers count in metric {}"
+        for status in ["active", "error"]:
+            q1 = '{' + '__name__="openstack_nova_instances_{}"'.format(
+                status) + '}'
+            q2 = 'openstack_nova_{}'.format(status)
+            q3 = 'openstack_nova_instances{'+'state="{}"'.format(status)+'}'
+            self.check_openstack_metrics(
+                prometheus_api, q1, get_servers_count(status.upper()),
+                err_msg.format(q1))
+            self.check_openstack_metrics(
+                prometheus_api, q2, get_servers_count(status.upper()),
+                err_msg.format(q2))
+            self.check_openstack_metrics(
+                prometheus_api, q3, get_servers_count(status.upper()),
+                err_msg.format(q3))
+
+    def test_nova_services_metrics(self, prometheus_api, cluster):
+        controllers = filter(lambda x: "controller" in x.roles, cluster.hosts)
+        computes = filter(lambda x: "compute" in x.roles, cluster.hosts)
+        controller_services = ["nova-cert", "nova-conductor",
+                               "nova-consoleauth", "nova-scheduler"]
+        compute_services = ["nova-compute"]
+        err_service_msg = "Service {} is down on the {} node"
+        for controller in controllers:
+            for service in controller_services:
+                q = 'hostname="{}",service="{}"'.format(
+                    controller.hostname, service)
+                self.check_openstack_metrics(
+                    prometheus_api, 'openstack_nova_service{'+q+',state="up"}',
+                    0, err_service_msg.format(service, controller.hostname))
+        for compute in computes:
+            for service in compute_services:
+                q = 'hostname="{}",service="{}"'.format(
+                    compute.hostname, service)
+                self.check_openstack_metrics(
+                    prometheus_api, 'openstack_nova_service{'+q+',state="up"}',
+                    0, err_service_msg.format(service, compute.hostname))
