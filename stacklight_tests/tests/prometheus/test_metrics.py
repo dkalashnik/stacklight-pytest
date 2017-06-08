@@ -97,5 +97,5 @@ class TestTelegrafMetrics(object):
         msg = "Timed out waiting to get all metrics"
         utils.wait(
             lambda: _verify_notifications(
-                metrics, '{'+'__name__=~"^{}.*"'.format(target)+'}'),
+                metrics, '{' + '__name__=~"^{}.*"'.format(target) + '}'),
             timeout=5 * 60, interval=10, timeout_msg=msg)
