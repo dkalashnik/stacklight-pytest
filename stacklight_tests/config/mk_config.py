@@ -150,7 +150,9 @@ class MKConfig(object):
         _param = self.get_application_node("prometheus_server")['parameters']
         expose_params = (
             _param["docker"]["client"]["stack"]["monitoring"]["service"])
-        get_port = lambda x: x["ports"][0].split(":")[0]
+
+        def get_port(x):
+            return x["ports"][0].split(":")[0]
         return {
             "use_prometheus_query_alert": True,
             "prometheus_vip": _param["_param"]["prometheus_control_address"],
