@@ -77,6 +77,8 @@ class MKConfig(object):
             node_params = current_node["parameters"]
             roles = current_node["applications"]
             roles.extend(parse_roles_from_classes(current_node))
+            roles.extend(current_node["classes"])
+            roles.sort()
             nodes_config.append({
                 "address": node_params['_param']['cluster_local_address'],
                 "hostname": node_params['linux']['network']['fqdn'],
