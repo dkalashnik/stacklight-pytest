@@ -90,11 +90,18 @@ class MKConfig(object):
     def generate_influxdb_config(self):
         _param = self.get_application_node("influxdb")['parameters']['_param']
         return {
-            "influxdb_vip": _param['grafana_influxdb_host'],
-            "influxdb_port": _param['influxdb_port'],
-            "influxdb_username": _param['influxdb_user'],
-            "influxdb_password": _param['influxdb_password'],
-            "influxdb_db_name": _param['influxdb_database'],
+            "influxdb_vip":
+                _param.get('grafana_influxdb_host') or
+                _param['stacklight_monitor_address'],
+            "influxdb_port":
+                _param['influxdb_port'],
+            "influxdb_username":
+                _param.get('influxdb_user') or "root",
+            "influxdb_password":
+                _param.get('influxdb_password') or
+                _param["influxdb_admin_password"],
+            "influxdb_db_name":
+                _param.get('influxdb_database') or "lma",
         }
 
     def generate_elasticsearch_config(self):
@@ -147,10 +154,13 @@ class MKConfig(object):
         }
 
     def generate_prometheus_config(self):
+        def get_port(input_line):
+            return input_line["ports"][0].split(":")[0]
+
         _param = self.get_application_node("prometheus_server")['parameters']
         expose_params = (
             _param["docker"]["client"]["stack"]["monitoring"]["service"])
-        get_port = lambda x: x["ports"][0].split(":")[0]
+
         return {
             "use_prometheus_query_alert": True,
             "prometheus_vip": _param["_param"]["prometheus_control_address"],
