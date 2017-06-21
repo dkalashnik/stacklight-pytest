@@ -19,12 +19,11 @@ def get_all_grafana_dashboards_names():
         "Kubernetes cluster monitoring (via Prometheus)": "kubernetes",
         "System": "linux",
         "Neutron": "service.neutron.control.cluster",
-        "Hypervisor": "service.nova.compute.kvm",
-        "Nova": "nova",
         "Prometheus Performances": "prometheus",
     }
-
     not_ready_dashboards = {
+        "Hypervisor": "service.nova.compute.kvm",
+        "Nova": "nova",
         "Cassandra": "",
         "Grafana": "grafana",
         "Heat": "heat",
