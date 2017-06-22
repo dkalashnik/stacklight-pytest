@@ -362,7 +362,9 @@ class TemplatesTree(object):
         self.nodes_by_level = collections.defaultdict(set)
         self.levels_by_name = collections.OrderedDict()
         self._build_abs_tree()
-        self._build()
+
+        if self.queries:
+            self._build()
 
     @staticmethod
     def parse_dependencies(query):
@@ -491,10 +493,13 @@ class Dashboard(object):
                 yield panel, row
 
     def get_templates_tree(self):
-        template_queries = {
-            "${}".format(item["name"]): (item["query"], item["regex"])
-            for item in self.dash_dict["dashboard"]["templating"]["list"]
-        }
+        if "templating" not in self.dash_dict["dashboard"]:
+            template_queries = {}
+        else:
+            template_queries = {
+                "${}".format(item["name"]): (item["query"], item["regex"])
+                for item in self.dash_dict["dashboard"]["templating"]["list"]
+            }
         return TemplatesTree(template_queries, self._datasource)
 
     def get_all_templates_for_query(self, query):
