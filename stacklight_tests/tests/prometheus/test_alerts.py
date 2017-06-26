@@ -36,6 +36,33 @@ class TestPrometheusAlerts(object):
             check_status()
         check_status(is_fired=False)
 
+    def test_predict_linear_disk_inodes_free_alert(
+            self, cluster, prometheus_alerting):
+        """Check that operation system alerts can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            3. Create files 400000 /dev/shm
+            4. Wait until and check that alert was fired
+            5. Remove all files from /dev/shm
+            6. Wait until and check that alert was ended
+
+        Duration 15m
+        """
+        cmp = cluster.filter_by_role("compute")[0]
+        criteria = {
+            "name": "PredictLinearDiskInodesFree",
+            "service": "system",
+        }
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)
+        cmp.exec_command("cd /dev/shm; for i in {1..4} ;do touch {$i}a{000001..100000}.c; done")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=10 * 60)
+        remove_files = "cd /dev/shm; find . -name '*.c' -print0 | xargs -0 rm"
+        cmp.exec_command(remove_files)
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=15 * 60)
+
 
 class TestKubernetesAlerts(object):
     @pytest.mark.parametrize(
