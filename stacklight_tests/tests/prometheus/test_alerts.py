@@ -173,6 +173,34 @@ class TestElasticSearchAlerts(object):
             criteria, is_fired=False, timeout=6 * 60)
 
 
+class TestKeystoneAlerts(object):
+    def test_keystone_alert(self, cluster, prometheus_alerting):
+        """Check that alerts for keystone services can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            2. Stop apache2 services on nodes with keystone roll
+            3. Wait until and check that alert was fired
+            4. Start apache2 services on nodes with keystone roll
+            5. Wait until and check that alert was ended
+
+        Duration 15m
+        """
+        keystone_nodes = cluster.filter_by_role("keystone")
+        criteria = {
+            "name": "KeystoneAPIDown",
+            "service": "keystone-public-api",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        for key_node in keystone_nodes:
+            key_node.os.manage_service("apache2", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=10 * 60)
+        for key_node in keystone_nodes:
+            key_node.os.manage_service("apache2", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)                                                       
+
+
 class TestInfluxDBAlerts(object):
     def test_procstat_running_influxdb_alert(self, cluster, prometheus_alerting):
         """Check that alerts ProcstatRunningInfluxdb can be fired.
@@ -377,3 +405,4 @@ class TestCinderAlerts(object):
             mon_node.os.manage_service("cinder-api", "start")
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=6 * 60)
+
