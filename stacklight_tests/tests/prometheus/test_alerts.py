@@ -146,6 +146,60 @@ class TestElasticSearchAlerts(object):
             criteria, is_fired=False, timeout=6 * 60)
 
 
+class TestInfluxDBAlerts(object):
+    def test_procstat_running_influxdb_alert(self, cluster, prometheus_alerting):
+        """Check that alerts ProcstatRunningInfluxdb can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            2. Stop all influxdb services on controller node
+            3. Wait until and check that alert was fired
+            4. Start all influxdb services
+            5. Wait until and check that alert was ended
+
+        Duration 10m
+        """
+        influx_nodes = cluster.filter_by_role("influxdb")
+        criteria = {
+            "name": "ProcstatRunningInfluxdb",
+            "service": "influxdb",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        for inf_node in influx_nodes:
+            inf_node.os.manage_service("influxdb", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        for inf_node in influx_nodes:
+            inf_node.os.manage_service("influxdb", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)
+
+    def test_influxdb_httpclient_error_alert(self, cluster, prometheus_alerting):
+        """Check that alerts InfluxdbHTTPClientError can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            2. Create 6000 failed requests in influxdb
+            3. Wait until and check that alert was fired
+            4. Wait until and check that alert was ended
+
+        Duration 10m
+        """
+        infl_node = cluster.filter_by_role("influxdb")[0]
+        criteria = {
+            "name": "InfluxdbHTTPClientError",
+            "service": "influxdb",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        command = "for i in {1..6000}; do influx -host " + str(
+            infl_node.address) + " -port 8086 -database lma -username lma" \
+                                 " -password lmapass -execute 'show tables'" \
+                                 " &>/dev/null; done"
+        infl_node.exec_command(command)
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)
+
+
 class TestMemcachedAlerts(object):
     def test_procstat_running_memcached_alert(self, cluster, prometheus_alerting):
         memcached_nodes = cluster.filter_by_role("memcached")
