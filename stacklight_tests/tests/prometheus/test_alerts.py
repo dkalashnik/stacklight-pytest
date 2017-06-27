@@ -241,3 +241,39 @@ class TestNeutronAlerts(object):
         del(criteria["severity"])
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=10 * 60)
+
+
+class TestGlanceAlerts(object):
+    def test_glance_api_down_alert(self, cluster, prometheus_alerting):
+        monitoring_nodes = cluster.filter_by_role("glance")
+        criteria = {
+            "name": "GlanceAPIDown",
+            "service": "glance-api",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        for mon_node in monitoring_nodes:
+            mon_node.os.manage_service("glance-api", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        for mon_node in monitoring_nodes:
+            mon_node.os.manage_service("glance-api", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)
+
+
+class TestCinderAlerts(object):
+    def test_cinder_api_down_alert(self, cluster, prometheus_alerting):
+        monitoring_nodes = cluster.filter_by_role("cinder")
+        criteria = {
+            "name": "CinderAPIDown",
+            "service": "cinder-api",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        for mon_node in monitoring_nodes:
+            mon_node.os.manage_service("cinder-api", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        for mon_node in monitoring_nodes:
+            mon_node.os.manage_service("cinder-api", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)

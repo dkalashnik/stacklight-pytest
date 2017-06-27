@@ -311,3 +311,52 @@ class TestTelegrafMetrics(object):
                     prometheus_api,
                     'openstack_nova_service{' + q + ',state="up"}',
                     0, err_service_msg.format(service, compute.hostname))
+
+    def test_mysql_metrics(self, cluster):
+        mysql_hosts = cluster.filter_by_role("galera")
+        expected_metrics = [
+            'mysql_wsrep_connected', 'mysql_wsrep_local_cert_failures',
+            'mysql_wsrep_local_commits', 'mysql_wsrep_local_send_queue',
+            'mysql_wsrep_ready', 'mysql_wsrep_received',
+            'mysql_wsrep_received_bytes', 'mysql_wsrep_replicated',
+            'mysql_wsrep_replicated_bytes', 'mysql_wsrep_cluster_size',
+            'mysql_wsrep_cluster_status', 'mysql_table_locks_immediate',
+            'mysql_table_locks_waited', 'mysql_slow_queries',
+            'mysql_threads_cached', 'mysql_threads_connected',
+            'mysql_threads_created', 'mysql_threads_running'
+        ]
+
+        postfixes = [
+            'admin_commands', 'alter_db', 'alter_table', 'begin',
+            'call_procedure', 'change_db', 'check', 'commit', 'create_db',
+            'create_index', 'create_procedure', 'create_table', 'create_user',
+            'dealloc_sql', 'delete', 'drop_db', 'drop_index', 'drop_procedure',
+            'drop_table', 'execute_sql', 'flush', 'grant', 'insert',
+            'insert_select', 'prepare_sql', 'release_savepoint', 'rollback',
+            'savepoint', 'select', 'set_option', 'show_collations',
+            'show_create_table', 'show_databases', 'show_fields',
+            'show_grants', 'show_master_status', 'show_status',
+            'show_table_status', 'show_tables', 'show_variables',
+            'show_warnings', 'unlock_tables', 'update'
+        ]
+
+        handlers = [
+            'commit', 'delete', 'external_lock', 'prepare', 'read_first',
+            'read_key', 'read_next', 'read_rnd', 'read_rnd_next', 'rollback',
+            'savepoint', 'update', 'write'
+        ]
+
+        for postfix in postfixes:
+            expected_metrics.append("mysql_commands_{}".format(postfix))
+        for handler in handlers:
+            expected_metrics.append("mysql_handler_{}".format(handler))
+
+        for host in mysql_hosts:
+            got_metrics = host.os.exec_command(
+                "curl -s localhost:9126/metrics | awk '/^mysql/{print $1}'")
+            hostname = host.hostname
+            for metric in expected_metrics:
+                metric = metric + '{host="' + hostname + '"}'
+                err_msg = ("Metric {} not found in received list of mysql "
+                           "metrics on {} node".format(metric, hostname))
+                assert metric in got_metrics, err_msg
