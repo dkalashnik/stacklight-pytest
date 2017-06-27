@@ -210,14 +210,7 @@ class GeneralActionsClient(object):
             :param operation: type of operation, usually start, stop or restart
             :type operation: str
         """
-        exit_code, _, _ = self.transport.exec_sync(
-            "ls /etc/init/{}.conf".format(name))
-
-        if exit_code == 0:
-            service_cmd = 'initctl {operation} {service}'
-        else:
-            service_cmd = 'service {service} {operation}'
-
+        service_cmd = 'service {service} {operation}'
         self.check_call(service_cmd.format(service=name, operation=operation))
 
     def clear_local_mail(self):
