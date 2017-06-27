@@ -79,8 +79,7 @@ class PrometheusClient(http_client.HttpClient):
         query = query[13:-1]
         # NOTE(rpromyshlennikov): strip "label_values(<metric> or <expr>)".
         if "," in query:
-            regex = r"(\w+.+),(\w+)"
-            query, item = re.match(regex, query).groups()
+            query, item = [i.strip() for i in query.split(",")]
             return list(
                 {res['metric'][item] for res in self.get_query(query)})
         return self.get_label_values(query)
