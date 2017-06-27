@@ -89,7 +89,8 @@ class TestPrometheusAlerts(object):
         }
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=10 * 60)
-        cmp.exec_command("cd /dev/shm; for i in {1..4} ;do touch {$i}a{000001..100000}.c; done")
+        cmp.exec_command("cd /dev/shm; for i in {1..4}; "
+                         "do touch {$i}a{000001..100000}.c; done")
         prometheus_alerting.check_alert_status(
             criteria, is_fired=True, timeout=10 * 60)
         remove_files = "cd /dev/shm; find . -name '*.c' -print0 | xargs -0 rm"
@@ -229,11 +230,12 @@ class TestKeystoneAlerts(object):
         for key_node in keystone_nodes:
             key_node.os.manage_service("apache2", "start")
         prometheus_alerting.check_alert_status(
-            criteria, is_fired=False, timeout=10 * 60)                                                       
+            criteria, is_fired=False, timeout=10 * 60)
 
 
 class TestInfluxDBAlerts(object):
-    def test_procstat_running_influxdb_alert(self, cluster, prometheus_alerting):
+    def test_procstat_running_influxdb_alert(
+            self, cluster, prometheus_alerting):
         """Check that alerts ProcstatRunningInfluxdb can be fired.
          Scenario:
             1. Check that alert is not fired
@@ -259,7 +261,8 @@ class TestInfluxDBAlerts(object):
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=6 * 60)
 
-    def test_influxdb_httpclient_error_alert(self, cluster, prometheus_alerting):
+    def test_influxdb_httpclient_error_alert(
+            self, cluster, prometheus_alerting):
         """Check that alerts InfluxdbHTTPClientError can be fired.
          Scenario:
             1. Check that alert is not fired
@@ -275,10 +278,11 @@ class TestInfluxDBAlerts(object):
             "service": "influxdb",
         }
         prometheus_alerting.check_alert_status(criteria, is_fired=False)
-        command = "for i in {1..6000}; do influx -host " + str(
-            infl_node.address) + " -port 8086 -database lma -username lma" \
-                                 " -password lmapass -execute 'show tables'" \
-                                 " &>/dev/null; done"
+        command = (
+            "for i in {1..6000}; do influx -host " + str(infl_node.address) +
+            " -port 8086 -database lma -username lma -password lmapass "
+            "execute 'show tables' &>/dev/null; done"
+        )
         infl_node.exec_command(command)
         prometheus_alerting.check_alert_status(
             criteria, is_fired=True, timeout=6 * 60)
@@ -287,7 +291,8 @@ class TestInfluxDBAlerts(object):
 
 
 class TestMemcachedAlerts(object):
-    def test_procstat_running_memcached_alert(self, cluster, prometheus_alerting):
+    def test_procstat_running_memcached_alert(
+            self, cluster, prometheus_alerting):
         memcached_nodes = cluster.filter_by_role("memcached")
         criteria = {
             "name": "ProcstatRunningMemcached",
@@ -302,7 +307,7 @@ class TestMemcachedAlerts(object):
         for mem_node in memcached_nodes:
             mem_node.os.manage_service("memcached", "start")
         prometheus_alerting.check_alert_status(
-            criteria, is_fired=False, timeout=6 * 60)                                                         
+            criteria, is_fired=False, timeout=6 * 60)
 
 
 class TestNeutronAlerts(object):
@@ -436,4 +441,3 @@ class TestCinderAlerts(object):
             mon_node.os.manage_service("cinder-api", "start")
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=6 * 60)
-

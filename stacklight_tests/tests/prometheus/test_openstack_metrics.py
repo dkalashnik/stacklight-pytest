@@ -34,7 +34,8 @@ class TestOpenstackMetrics(object):
 
         count_query = ('{__name__="openstack_glance_images",'
                        'visibility="public",status="active"}')
-        err_count_msg = "Incorrect image count in metric {}".format(count_query)
+        err_count_msg = "Incorrect image count in metric {}".format(
+            count_query)
         self.check_openstack_metrics(
             prometheus_api, count_query, images_count, err_count_msg)
 
@@ -152,7 +153,8 @@ class TestOpenstackMetrics(object):
             q1 = '{' + '__name__="openstack_nova_instances_{}"'.format(
                 status) + '}'
             q2 = 'openstack_nova_{}'.format(status)
-            q3 = 'openstack_nova_instances{'+'state="{}"'.format(status)+'}'
+            q3 = 'openstack_nova_instances{' + 'state="{}"'.format(
+                status) + '}'
             self.check_openstack_metrics(
                 prometheus_api, q1, get_servers_count(status.upper()),
                 err_msg.format(q1))
@@ -175,12 +177,14 @@ class TestOpenstackMetrics(object):
                 q = 'hostname="{}",service="{}"'.format(
                     controller.hostname, service)
                 self.check_openstack_metrics(
-                    prometheus_api, 'openstack_nova_service{'+q+',state="up"}',
+                    prometheus_api,
+                    'openstack_nova_service{' + q + ',state="up"}',
                     0, err_service_msg.format(service, controller.hostname))
         for compute in computes:
             for service in compute_services:
                 q = 'hostname="{}",service="{}"'.format(
                     compute.hostname, service)
                 self.check_openstack_metrics(
-                    prometheus_api, 'openstack_nova_service{'+q+',state="up"}',
+                    prometheus_api,
+                    'openstack_nova_service{' + q + ',state="up"}',
                     0, err_service_msg.format(service, compute.hostname))

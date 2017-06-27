@@ -21,7 +21,7 @@ def get_all_grafana_dashboards_names():
         "Neutron": "service.neutron.control.cluster",
         "Prometheus Performances": "prometheus",
     }
-    not_ready_dashboards = {
+    not_ready_dashboards = {  # noqa
         "Hypervisor": "service.nova.compute.kvm",
         "Nova": "nova",
         "Cassandra": "",
