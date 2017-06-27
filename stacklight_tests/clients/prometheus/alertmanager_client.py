@@ -178,7 +178,7 @@ def get_alert_from_query_dict(json_repr):
         name=json_repr["metric"]["alertname"],
         time=json_repr["value"][0],
         host=json_repr["metric"].get("host", ""),
-        service=json_repr["metric"]["service"],
+        service=json_repr["metric"].get("service", ""),
         severity=json_repr["metric"]["severity"],
         value=int(json_repr["value"][1]),
     )

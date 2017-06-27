@@ -47,11 +47,11 @@ class GeneralActionsClient(object):
         return self.transport.get_file(source_path, destination_path)
 
     def graceful_reboot(self):
-        logger.info("Grace reboot node: {0}".format(self.hostname))
+        logger.info("Grace reboot node: {0}".format(self.short_hostname))
         self.exec_command("/sbin/reboot > /dev/null 2>&1 &")
 
     def force_reboot(self):
-        logger.info("Force reboot node: {0}".format(self.hostname))
+        logger.info("Force reboot node: {0}".format(self.short_hostname))
         self.exec_command("/sbin/reboot -f > /dev/null 2>&1 &")
 
     def get_pids(self, process_name):
@@ -61,19 +61,19 @@ class GeneralActionsClient(object):
 
     def kill_process_by_pid(self, pid):
         logger.info("Killing process pid {0} on node {1}"
-                    .format(pid, self.hostname))
+                    .format(pid, self.short_hostname))
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("kill -9 {0}".format(pid))
 
     def kill_process_by_name(self, process_name):
         logger.info("Killing {0} processes on node {1}"
-                    .format(process_name, self.hostname))
+                    .format(process_name, self.short_hostname))
         for pid in self.get_pids(process_name):
             self.kill_process_by_pid(pid)
 
     def killall_processes(self, process_name):
         logger.info("Kill all processes {0} on node {1}"
-                    .format(process_name, self.hostname))
+                    .format(process_name, self.short_hostname))
         # TODO(rpromyshlennikov): use "check_call" instead of exec_command
         self.exec_command("killall -9 {0}".format(process_name))
 
@@ -82,10 +82,10 @@ class GeneralActionsClient(object):
             "ps ax | grep {0} | grep -v grep".format(name))
         if ret_code == 0:
             logger.info("Found {0} process on nodes {1}"
-                        .format(name, self.hostname))
+                        .format(name, self.short_hostname))
             return True
         logger.info("Not found {0} process on nodes {1}"
-                    .format(name, self.hostname))
+                    .format(name, self.short_hostname))
         return False
 
     def tcp_ping(self, port=22):
