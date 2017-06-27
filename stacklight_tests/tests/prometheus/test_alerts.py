@@ -146,6 +146,25 @@ class TestElasticSearchAlerts(object):
             criteria, is_fired=False, timeout=6 * 60)
 
 
+class TestMemcachedAlerts(object):
+    def test_procstat_running_memcached_alert(self, cluster, prometheus_alerting):
+        memcached_nodes = cluster.filter_by_role("memcached")
+        criteria = {
+            "name": "ProcstatRunningMemcached",
+            "service": "memcached",
+        }
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)
+        for mem_node in memcached_nodes:
+            mem_node.os.manage_service("memcached", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        for mem_node in memcached_nodes:
+            mem_node.os.manage_service("memcached", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)                                                         
+
+
 class TestNeutronAlerts(object):
     def test_neutron_api_alert(self, destructive, cluster,
                                prometheus_alerting):
