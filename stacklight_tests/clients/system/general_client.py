@@ -292,3 +292,9 @@ class GeneralActionsClient(object):
             yield
         finally:
             self.check_call(unload_cmd)
+
+    def apt_get_install_package(self, package):
+        return self.exec_command("apt-get install -y {}".format(package))
+
+    def apt_get_remove_package(self, package):
+        return self.exec_command("apt-get remove -y {}".format(package))
