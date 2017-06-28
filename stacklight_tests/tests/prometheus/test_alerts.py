@@ -66,6 +66,35 @@ class TestPrometheusAlerts(object):
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=15 * 60)
 
+    def test_system_predict_linear_disk_free_alert(self, cluster,
+                                                   prometheus_alerting):
+        """Check that operation system alerts can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            2. Install 'stress' package
+            3. start process which will load mem in /dev/shm
+            4. Wait until and check that alert was fired
+            5. Remove 'stress' package
+            6. Wait until and check that alert was ended
+
+        Duration 15m
+        """
+        cmp = cluster.filter_by_role("compute")[0]
+        criteria = {
+            "name": "PredictLinearDiskFree",
+            "service": "system",
+        }
+        cmp.os.apt_get_install_package("stress")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)
+        command = "cd /dev/shm; nohup stress -d 2 --timeout 480s &"
+        cmp.exec_command(command)
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=10 * 60)
+        cmp.os.apt_get_remove_package("stress")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=15 * 60)
+
 
 class TestKubernetesAlerts(object):
     @pytest.mark.parametrize(
