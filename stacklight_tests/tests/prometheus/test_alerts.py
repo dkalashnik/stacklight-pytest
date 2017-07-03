@@ -233,6 +233,34 @@ class TestKeystoneAlerts(object):
             criteria, is_fired=False, timeout=10 * 60)
 
 
+class TestNovaAlerts(object):
+    def test_nova_api_down_alert(self, cluster, prometheus_alerting):
+        """Check that NovaApiDown alert can be fired.
+         Scenario:
+            1. Check that alert is not fired
+            2. Stop nova-api services on ctl nodes with nova roll
+            3. Wait until and check that alert was fired
+            4. Start nova-api services on ctl nodes with nova roll
+            5. Wait until and check that alert was ended
+
+        Duration 15m
+        """
+        nova_nodes = cluster.filter_by_role("system.nova.control.cluster")
+        criteria = {
+            "name": "NovaAPIDown",
+            "service": "nova-api",
+        }
+        prometheus_alerting.check_alert_status(criteria, is_fired=False)
+        for node in nova_nodes:
+            node.os.manage_service("nova-api", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=10 * 60)
+        for node in nova_nodes:
+            node.os.manage_service("nova-api", "start")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)
+
+
 class TestInfluxDBAlerts(object):
     def test_procstat_running_influxdb_alert(
             self, cluster, prometheus_alerting):
