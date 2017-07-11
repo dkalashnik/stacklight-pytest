@@ -60,7 +60,7 @@ class TestPrometheusAlerts(object):
             criteria, is_fired=False, timeout=10 * 60)
         memory = cmp.exec_command("grep MemFree /proc/meminfo")
         _, memory, _ = memory.split()
-        memory = str(int(memory) * 0.95)
+        memory = str(int(memory) * 0.99)
         command = "nohup stress --vm-bytes " + memory + "k --vm-keep -m 1" \
                   " --timeout 600 &"
         cmp.exec_command(command)
