@@ -7,7 +7,7 @@ class TestPrometheusSmoke(object):
 
         def test_prometheus_container_up(node):
             status = node.exec_command(
-                "docker ps --filter ancestor=prometheus "
+                "docker ps --filter name=monitoring_server "
                 "--format '{{.Status}}'")
             return "Up" in status
 

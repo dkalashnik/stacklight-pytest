@@ -214,22 +214,18 @@ class TestEtcdAlerts(object):
 
 
 class TestElasticSearchAlerts(object):
-    def test_es_health_alert(self, cluster, prometheus_alerting):
-        monitoring_nodes = cluster.filter_by_role("monitoring")[:2]
+    def test_elasticsearch_down_alert(self, cluster, prometheus_alerting):
+        elasticsearch_node = cluster.filter_by_role("elasticsearch")[0]
         criteria = {
-            "name": "elasticsearch_cluster_health",
+            "name": "ElasticsearchDown",
             "service": "elasticsearch",
         }
-        prometheus_alerting.check_alert_status(criteria, is_fired=False)
-        criteria.update({"severity": "warning"})
-        for mon_node in monitoring_nodes:
-            mon_node.os.manage_service("elasticsearch", "stop")
-            prometheus_alerting.check_alert_status(
-                criteria, is_fired=True, timeout=6 * 60)
-            criteria.update({"severity": "critical"})
-        for mon_node in monitoring_nodes:
-            mon_node.os.manage_service("elasticsearch", "start")
-        del(criteria["severity"])
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=6 * 60)
+        elasticsearch_node.os.manage_service("elasticsearch", "stop")
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=6 * 60)
+        elasticsearch_node.os.manage_service("elasticsearch", "start")
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=6 * 60)
 
