@@ -7,33 +7,36 @@ def idfy_name(name):
 
 def get_all_grafana_dashboards_names():
     dashboards = {
-        "Cinder (via Prometheus)": "cinder",
+        "Apache": "apache",
+        "Cassandra": "cassandra-server",
+        "Calico cluster monitoring (via Prometheus)": "kubernetes",
+        "Cinder": "cinder",
+        "Docker": "docker",
         "Elasticsearch": "elasticsearch",
         "Etcd": "etcd",
-        "MySQL": "galera.master",
         "Glance": "glance",
+        "GlusterFS": "glusterfs",
         "HAProxy": "haproxy",
-        "Keystone": "keystone",
-        "Calico cluster monitoring (via Prometheus)": "kubernetes",
-        "Kubernetes App Metrics": "kubernetes",
-        "Kubernetes cluster monitoring (via Prometheus)": "kubernetes",
-        "System": "linux",
-        "Neutron": "service.neutron.control.cluster",
-        "Prometheus Performances": "prometheus",
-    }
-    not_ready_dashboards = {  # noqa
         "Hypervisor": "service.nova.compute.kvm",
-        "Nova": "nova",
-        "Cassandra": "",
-        "Grafana": "grafana",
         "Heat": "heat",
         "InfluxDB": "influxdb",
+        "Keystone": "keystone",
         "Kibana": "kibana",
+        "Kubernetes App Metrics": "kubernetes",
+        "Kubernetes cluster monitoring (via Prometheus)": "kubernetes",
         "Memcached": "memcached",
+        "MySQL": "galera.master",
+        "Neutron": "service.neutron.control.cluster",
+        "Nova": "nova",
         "Nginx": "nginx",
-        "OpenContrail": "",
+        "OpenContrail": "opencontrail",
+        "Prometheus Performances": "prometheus",
         "RabbitMQ": "rabbitmq",
-        "GlusterFS": "glusterfs",
+        "System": "linux",
+    }
+    not_ready_dashboards = {  # noqa
+        "Remote storage adapter": "",
+        "Grafana": "grafana",
     }
 
     return {idfy_name(k): v for k, v in dashboards.items()}
