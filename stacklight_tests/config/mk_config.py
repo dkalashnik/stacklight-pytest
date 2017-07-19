@@ -80,7 +80,7 @@ class MKConfig(object):
             roles.extend(current_node["classes"])
             roles.sort()
             nodes_config.append({
-                "address": node_params['_param']['cluster_local_address'],
+                "address": node_params['_param']['single_address'],
                 "hostname": node_params['linux']['network']['fqdn'],
                 "username": "root",
                 "private_key": private_key,
