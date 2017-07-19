@@ -117,5 +117,5 @@ def os_clients(keystone_config):
 
 
 @pytest.fixture(scope="session")
-def os_actions(openstack_clients):
-    return client_manager.OSCliActions(openstack_clients)
+def os_actions(os_clients):
+    return client_manager.OSCliActions(os_clients)

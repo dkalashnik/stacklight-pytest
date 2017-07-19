@@ -1,6 +1,8 @@
 import logging
 import pytest
 
+from stacklight_tests import utils
+
 logger = logging.getLogger(__name__)
 
 service_down_entities = {
@@ -216,3 +218,61 @@ class TestPrometheusAlerts(object):
             node.os.manage_service(service, "start")
         prometheus_alerting.check_alert_status(
             criteria, is_fired=False, timeout=10 * 60)
+
+    def test_nova_aggregates_memory(self, prometheus_api, prometheus_alerting,
+                                    os_clients, os_actions, destructive):
+        def get_agg_free_ram(a_n, a_id):
+            def _get_current_value(q):
+                try:
+                    v = prometheus_api.get_query(q)[0]["value"][1]
+                except IndexError:
+                    v = 0
+                return v
+            query = ('openstack_nova_aggregate_free_ram{aggregate="' + a_n +
+                     '",aggregate_id="' + str(a_id) + '"}')
+            utils.wait(lambda: _get_current_value(query) != 0,
+                       interval=10, timeout=2 * 60)
+            return _get_current_value(query)
+
+        client = os_clients.compute
+        aggr_name = "test-aggr"
+        az = "test-az"
+        host = "cmp01"
+        aggr = client.aggregates.create(aggr_name, az)
+        client.aggregates.add_host(aggr, host)
+        destructive.append(lambda: client.aggregates.remove_host(
+            aggr, host))
+        destructive.append(lambda: client.aggregates.delete(aggr.id))
+        criteria = {
+            "name": "NovaAggregatesFreeMemoryLow"
+        }
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)
+        free_ram = get_agg_free_ram(aggr_name, aggr.id)
+        image = os_actions.get_cirros_image()
+        flavor = os_actions.create_flavor(
+            name="test_flavor", ram=int(free_ram) - 100)
+        destructive.append(lambda: client.flavors.delete(flavor))
+        tenant_id = os_actions.get_admin_tenant().id
+        net = os_actions.create_network(tenant_id)
+        subnet = os_actions.create_subnet(net, tenant_id, "192.168.100.0/24")
+        server = os_actions.create_basic_server(image, flavor, net,
+                                                availability_zone=az)
+        destructive.append(lambda: client.servers.delete(server))
+        destructive.append(lambda: os_clients.network.delete_subnet(
+            subnet['id']))
+        destructive.append(lambda: os_clients.network.delete_network(
+            net['id']))
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=True, timeout=10 * 60)
+        client.servers.delete(server)
+        utils.wait(
+            lambda: (server.id not in [s.id for s in client.servers.list()])
+        )
+        prometheus_alerting.check_alert_status(
+            criteria, is_fired=False, timeout=10 * 60)
+        os_clients.network.delete_subnet(subnet['id'])
+        os_clients.network.delete_network(net['id'])
+        client.flavors.delete(flavor)
+        client.aggregates.remove_host(aggr, host)
+        client.aggregates.delete(aggr.id)

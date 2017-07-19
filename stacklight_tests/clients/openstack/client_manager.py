@@ -297,7 +297,8 @@ class OSCliActions(object):
         return secgroup
 
     def create_basic_server(self, image=None, flavor=None, net=None,
-                            sec_groups=(), wait_timeout=3 * 60):
+                            availability_zone=None, sec_groups=(),
+                            wait_timeout=3 * 60):
         os_conn = self.os_clients
         image = image or self.get_cirros_image()
         flavor = flavor or self.get_micro_flavor()
@@ -307,7 +308,8 @@ class OSCliActions(object):
             kwargs['security_groups'] = sec_groups
         server = os_conn.compute.servers.create(
             utils.rand_name("server-"),
-            image, flavor, nics=[{"net-id": net["id"]}], **kwargs)
+            image, flavor, nics=[{"net-id": net["id"]}],
+            availability_zone=availability_zone, **kwargs)
         if wait_timeout:
             utils.wait(
                 lambda: os_conn.compute.servers.get(server).status == "ACTIVE",
@@ -353,14 +355,14 @@ class OSCliActions(object):
         # yield net
         # self.os_clients.network.delete_network(ext_net['id'])
 
-    def create_subnet(self, net, tenant_id):
+    def create_subnet(self, net, tenant_id, cidr=None):
         subnet_name = utils.rand_name("subnet-")
         subnet_body = {
             'subnet': {
                 "name": subnet_name,
                 'network_id': net['id'],
                 'ip_version': 4,
-                'cidr': '10.1.7.0/24',
+                'cidr': cidr if cidr else '10.1.7.0/24',
                 'tenant_id': tenant_id
             }
         }
