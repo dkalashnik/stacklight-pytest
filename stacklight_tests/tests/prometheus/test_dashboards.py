@@ -1,14 +1,20 @@
 import pytest
+from prettytable import PrettyTable
 
 
 def idfy_name(name):
     return name.lower().replace(" ", "-").replace("(", "").replace(")", "")
 
 
+def query_dict_to_string(query_dict):
+    return "\n\n".join(
+        [panel + "\n" + query for panel, query in query_dict.items()])
+
+
 def get_all_grafana_dashboards_names():
     dashboards = {
         "Apache": "apache",
-        "Cassandra": "cassandra-server",
+        "Cassandra": "opencontrail",
         "Calico cluster monitoring (via Prometheus)": "kubernetes",
         "Cinder": "cinder",
         "Docker": "docker",
@@ -33,9 +39,7 @@ def get_all_grafana_dashboards_names():
         "Prometheus Performances": "prometheus",
         "RabbitMQ": "rabbitmq",
         "System": "linux",
-    }
-    not_ready_dashboards = {  # noqa
-        "Remote storage adapter": "",
+        "Remote storage adapter": "influxdb",
         "Grafana": "grafana",
     }
 
@@ -69,23 +73,35 @@ def test_grafana_dashboard_panel_queries(dashboard_fixture, grafana_client):
     dashboard = grafana_client.get_dashboard(dashboard_name, datasource)
     result = dashboard.classify_all_dashboard_queries()
     ok_panels, partially_ok_panels, no_table_panels, failed_panels = result
+
+    fail_dict = {
+        "Total OK": len(ok_panels),
+        "No table": query_dict_to_string(no_table_panels),
+        "Total no table": len(no_table_panels),
+        "Partially OK queries": query_dict_to_string(partially_ok_panels),
+        "Total partially OK": len(partially_ok_panels),
+        "Failed queries": query_dict_to_string(failed_panels),
+        "Total failed": len(failed_panels),
+    }
+
     fail_msg = (
-        "Total OK: {len_ok}\n"
-        "No table: {no_table}\n"
-        "Total no table: {len_no}\n"
-        "Partially ok queries: {partially_ok}\n"
-        "Total partially ok: {len_partially_ok}\n"
-        "Failed queries: {failed}\n"
-        "Total failed: {len_fail}".format(
-            len_ok=len(ok_panels),
-            partially_ok=partially_ok_panels.items(),
-            len_partially_ok=len(partially_ok_panels),
-            no_table=no_table_panels.items(),
-            len_no=len(no_table_panels),
-            failed=failed_panels.items(),
-            len_fail=len(failed_panels))
-    )
+        "Total OK: {Total OK}\n"
+        "No table: {No table}\n"
+        "Total no table: {Total no table}\n"
+        "Partially OK queries: {Partially OK queries}\n"
+        "Total partially OK: {Total partially OK}\n"
+        "Failed queries: {Failed queries}\n"
+        "Total failed: {Total failed}".format(
+            **fail_dict))
+
+    fail_table = PrettyTable(["Name", "Value"])
+    fail_table.align["Value"] = "l"
+    fail_table.align["Name"] = "l"
+
+    for name, value in fail_dict.items():
+        fail_table.add_row([name, value])
+
     assert (ok_panels and not
             partially_ok_panels and not
             no_table_panels and not
-            failed_panels), fail_msg
+            failed_panels), fail_table
