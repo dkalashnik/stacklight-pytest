@@ -50,6 +50,7 @@ def setup_config_fixtures():
         fn_name = "{}_config".format(app)
         globals()[fn_name] = get_wrapped(app)
 
+
 setup_config_fixtures()
 
 

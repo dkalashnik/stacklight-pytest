@@ -1,8 +1,9 @@
 import pytest
 
 from stacklight_tests.clients import es_kibana_api
-from stacklight_tests.clients import influxdb_grafana_api
+from stacklight_tests.clients import grafana_api
 from stacklight_tests.clients.openstack import client_manager
+from stacklight_tests.clients import influxdb_api
 from stacklight_tests.clients import nagios_api
 from stacklight_tests.clients.prometheus import alertmanager_client
 from stacklight_tests.clients.prometheus import prometheus_client
@@ -53,35 +54,27 @@ def nagios_client(nagios_config):
 
 
 @pytest.fixture(scope="session")
-def influxdb_client(influxdb_config):
-    influxdb_api = influxdb_grafana_api.get_influxdb_client_from_config(
-        influxdb_config)
-    return influxdb_api
-
-
-@pytest.fixture(scope="session")
-def grafana_datasources(env_config):
-    datasources = {"influxdb": None, "prometheus": None}
-    get_clients_fn = {
-        "influxdb": influxdb_grafana_api.get_influxdb_client_from_config,
-        "prometheus": prometheus_client.get_prometheus_client_from_config}
-    for datasource in datasources.keys():
-        if datasource in env_config:
-            datasources[datasource] = get_clients_fn[datasource](
-                env_config[datasource])
-    return datasources
+def influxdb_client(config):
+    influxdb = influxdb_api.InfluxdbApi(
+        address=config["influxdb_vip"],
+        port=config["influxdb_port"],
+        username=config["influxdb_username"],
+        password=config["influxdb_password"],
+        db_name=config["influxdb_db_name"]
+    )
+    return influxdb
 
 
 @pytest.fixture(scope="session")
 def grafana_client(grafana_config, grafana_datasources):
-    grafana_api = influxdb_grafana_api.GrafanaApi(
+    grafana = grafana_api.GrafanaApi(
         address=grafana_config["grafana_vip"],
         port=grafana_config["grafana_port"],
         username=grafana_config["grafana_username"],
         password=grafana_config["grafana_password"],
-        datasources=grafana_datasources,
+        datasource=grafana_datasources,
     )
-    return grafana_api
+    return grafana
 
 
 @pytest.fixture(scope="session")

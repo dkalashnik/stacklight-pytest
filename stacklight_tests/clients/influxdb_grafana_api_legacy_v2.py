@@ -529,6 +529,7 @@ class Dashboard(object):
     def classify_query(self, raw_query, table):
         if table and (table not in self.available_measurements):
             return "no_table", raw_query
+
         results = collections.defaultdict(list)
         possible_templates = self.get_all_templates_for_query(raw_query)
         for template in possible_templates:
@@ -557,7 +558,7 @@ class Dashboard(object):
 
 
 class GrafanaApi(object):
-    def __init__(self, address, port, username, password, datasources,
+    def __init__(self, address, port, username, password, datasource,
                  tls=False):
         super(GrafanaApi, self).__init__()
         self.address = address
@@ -568,7 +569,7 @@ class GrafanaApi(object):
         scheme = "https" if tls else "http"
         self.grafana_api_url = "{scheme}://{host}:{port}/api".format(
             scheme=scheme, host=address, port=port)
-        self._datasources = datasources
+        self.datasource = datasource
 
     def get_api_url(self, resource=""):
         return "{}{}".format(self.grafana_api_url, resource)
@@ -589,17 +590,14 @@ class GrafanaApi(object):
             dashboard_url, expected_codes=[], auth=self.auth)
         if response.status_code == 200:
             return response
-        elif response.status_code == 404:
-            return None
         else:
             response.raise_for_status()
 
-    def get_dashboard(self, name, datasource_type):
+    def get_dashboard(self, name):
         raw_dashboard = self._get_raw_dashboard(name)
         if raw_dashboard:
             return Dashboard(raw_dashboard.json(),
-                             self._datasources[datasource_type])
-        return None
+                             self.datasource)
 
     def get_all_dashboards_names(self):
         search_url = self.get_api_url("/search")
