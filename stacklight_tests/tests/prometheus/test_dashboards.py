@@ -115,13 +115,10 @@ class Panel(object):
                     self.raw_query,
                     '\n    '.join(self.get_failed_queries()))
 
-    def __repr__(self):
+    def __str__(self):
         if self.status != PanelStatus.partial_fail:
             return self.print_panel()
         return self.print_panel_detail()
-
-    def __str__(self):
-        return self.__repr__()
 
 
 @pytest.fixture(scope="module",
@@ -163,17 +160,22 @@ def test_grafana_dashboard_panel_queries(
             except (KeyError, ValueError):
                 panel.add_query(query, PanelStatus.fail)
 
-        dashboard_results[panel.status] = panel
+        dashboard_results[panel.status].append(panel)
+
+    error_msg = (
+        "\nPassed panels:\n{passed}"
+        "Ignored panels:\n{ignored}"
+        "Failed panels:\n{failed}"
+        "Partially failed panels:\n{partially_failed}").format(
+            passed="\n".join(
+                map(str, dashboard_results[PanelStatus.ok])),
+            ignored="\n".join(
+                map(str, dashboard_results[PanelStatus.ignored])),
+            failed="\n".join(
+                map(str, dashboard_results[PanelStatus.fail])),
+            partially_failed="\n".join(
+                map(str, dashboard_results[PanelStatus.partial_fail])),
+        )
 
     assert (len(dashboard_results[PanelStatus.fail]) > 0 or
-            len(dashboard_results[PanelStatus.partial_fail]) > 0), \
-        ("Passed panels:\n{passed}"
-         "Ignored panels:\n{ignored}"
-         "Failed panels:\n{failed}"
-         "Partially failed panels:\n{partially_failed}").format(
-            passed="\n".join(dashboard_results[PanelStatus.ok]),
-            ignored="\n".join(dashboard_results[PanelStatus.ignored]),
-            failed="\n".join(dashboard_results[PanelStatus.fail]),
-            partially_failed="\n".join(
-                dashboard_results[PanelStatus.partial_fail]),
-        )
+            len(dashboard_results[PanelStatus.partial_fail]) > 0), error_msg
