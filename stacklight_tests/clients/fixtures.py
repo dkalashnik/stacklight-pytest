@@ -66,13 +66,13 @@ def influxdb_client(config):
 
 
 @pytest.fixture(scope="session")
-def grafana_client(grafana_config, grafana_datasources):
+def grafana_client(grafana_config, prometheus_api):
     grafana = grafana_api.GrafanaApi(
         address=grafana_config["grafana_vip"],
         port=grafana_config["grafana_port"],
         username=grafana_config["grafana_username"],
         password=grafana_config["grafana_password"],
-        datasource=grafana_datasources,
+        datasource=prometheus_api,
     )
     return grafana
 
