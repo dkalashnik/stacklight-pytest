@@ -66,7 +66,6 @@ def get_all_grafana_dashboards_names():
 
 
 class PanelStatus(object):
-    __slot__ = []
     ok = "Passed"
     partial_fail = "Partially failed"
     fail = "Failed"
@@ -106,11 +105,11 @@ class Panel(object):
                 if status == PanelStatus.fail]
 
     def print_panel(self):
-        return "Location {} \t Query {}".format(self.location,
-                                                self.raw_query)
+        return '  Location "{}" \t Query "{}"'\
+            .format(self.location, self.raw_query)
 
     def print_panel_detail(self):
-        return "Location {} \t Query {}\n  Failed queries:\n    {}"\
+        return '  Location "{}" \t Query "{}"\n    Failed queries:\n    {}'\
             .format(self.location,
                     self.raw_query,
                     '\n    '.join(self.get_failed_queries()))
@@ -163,17 +162,17 @@ def test_grafana_dashboard_panel_queries(
         dashboard_results[panel.status].append(panel)
 
     error_msg = (
-        "\nPassed panels:\n{passed}"
-        "Ignored panels:\n{ignored}"
-        "Failed panels:\n{failed}"
-        "Partially failed panels:\n{partially_failed}").format(
-            passed="\n".join(
+        "\nPassed panels:\n  {passed}"
+        "\nIgnored panels:\n  {ignored}"
+        "\nFailed panels:\n  {failed}"
+        "\nPartially failed panels:\n  {partially_failed}").format(
+            passed="\n  ".join(
                 map(str, dashboard_results[PanelStatus.ok])),
-            ignored="\n".join(
+            ignored="\n  ".join(
                 map(str, dashboard_results[PanelStatus.ignored])),
-            failed="\n".join(
+            failed="\n  ".join(
                 map(str, dashboard_results[PanelStatus.fail])),
-            partially_failed="\n".join(
+            partially_failed="\n  ".join(
                 map(str, dashboard_results[PanelStatus.partial_fail])),
         )
 
