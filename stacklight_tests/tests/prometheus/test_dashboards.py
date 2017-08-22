@@ -84,7 +84,8 @@ class Panel(object):
 
     @property
     def status(self):
-        statuses = self.queries.items()
+        statuses = self.queries.values()
+
         if all([status == PanelStatus.ok for status in statuses]):
             return PanelStatus.ok
 
@@ -104,14 +105,20 @@ class Panel(object):
         return [query for query, status in self.queries.items()
                 if status == PanelStatus.fail]
 
-    def __repr__(self):
-        if self.status is not PanelStatus.partial_fail:
-            return "Query {}, Location {}".format(self.raw_query,
-                                                  self.location)
-        return "Query {}, Location {}, Failed queries:\n    {}"\
-            .format(self.raw_query,
-                    self.location,
+    def print_panel(self):
+        return "Location {} \t Query {}".format(self.location,
+                                                self.raw_query)
+
+    def print_panel_detail(self):
+        return "Location {} \t Query {}\n  Failed queries:\n    {}"\
+            .format(self.location,
+                    self.raw_query,
                     '\n    '.join(self.get_failed_queries()))
+
+    def __repr__(self):
+        if self.status != PanelStatus.partial_fail:
+            return self.print_panel()
+        return self.print_panel_detail()
 
     def __str__(self):
         return self.__repr__()
