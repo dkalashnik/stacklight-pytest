@@ -47,7 +47,7 @@ config.dictConfig({
         },
         'stacklight_tests': {
             'handlers': ['console'],
-            'level': logging.DEBUG,
+            'level': logging.INFO,
         }
     }
 })
