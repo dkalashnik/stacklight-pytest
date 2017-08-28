@@ -75,14 +75,18 @@ class PrometheusClient(http_client.HttpClient):
         alertmanagers = json.loads(resp)
         return alertmanagers["data"]["activeAlertmanagers"]
 
-    def _do_label_values_query(self, query):
-        query = query[13:-1]
-        # NOTE(rpromyshlennikov): strip "label_values(<metric> or <expr>)".
-        if "," in query:
-            query, item = [i.strip() for i in query.split(",")]
-            return list(
-                {res['metric'][item] for res in self.get_query(query)})
-        return self.get_label_values(query)
+    def _do_label_values_query(self, label_values_query):
+        pattern = (r"label_values\("
+                   r"((?P<query>\w*({.*}){0,1}),){0,1}"
+                   r"(?P<label>\w*)\)")
+        m = re.match(pattern, label_values_query)
+        query = m.group("query")
+        label = m.group("label")
+
+        if query is None:
+            return self.get_label_values(label)
+        return list(
+            {res['metric'][label] for res in self.get_query(query)})
 
     def _do_query_result_query(self, query, regex=None):
         def convert_to_human_readable_string(metric):
@@ -92,9 +96,10 @@ class PrometheusClient(http_client.HttpClient):
                      if name != "__name__"]
             metric_string += ",".join(items)
             return metric_string + "}"
-        # NOTE(rpromyshlennikov): strip "query_result()" and
-        # get specific result.
-        query = query[13:-1]
+
+        pattern = r"query_result\((?P<query>.*)\)"
+        m = re.match(pattern, query)
+        query = m.group("query")
         result = [convert_to_human_readable_string(entity["metric"])
                   for entity in self.get_query(query)]
         if regex is not None:
