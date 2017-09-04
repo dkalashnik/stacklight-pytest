@@ -1,6 +1,6 @@
 import pytest
 
-from stacklight_tests.clients import influxdb_grafana_api
+from stacklight_tests.clients import influxdb_grafana_api_legacy_v2
 
 
 def check_service_installed(cluster, name, role=None):
@@ -147,7 +147,7 @@ class TestSmoke(object):
         """
         grafana_client.check_grafana_online()
         dashboard_names = (
-            influxdb_grafana_api.get_all_grafana_dashboards_names())
+            influxdb_grafana_api_legacy_v2.get_all_grafana_dashboards_names())
         absent_dashboards = set()
         for name in dashboard_names:
             if not grafana_client.is_dashboard_exists(name):
