@@ -178,3 +178,13 @@ def test_grafana_dashboard_panel_queries(
 
     assert (len(dashboard_results[PanelStatus.fail]) == 0 or
             len(dashboard_results[PanelStatus.partial_fail]) == 0), error_msg
+
+
+def test_panels_fixture(grafana_client):
+    dashboards = grafana_client.get_all_dashboards_names()
+    fixture_dashboards = get_all_grafana_dashboards_names().keys()
+    print dashboards
+
+    print fixture_dashboards
+
+    print set(dashboards).difference(set(fixture_dashboards))
