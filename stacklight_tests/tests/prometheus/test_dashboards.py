@@ -48,7 +48,6 @@ def get_all_grafana_dashboards_names():
         "InfluxDB Relay": "influxdb",
         "Keystone": "keystone",
         "Kibana": "kibana",
-        "Kubernetes App Metrics": "kubernetes",
         "Kubernetes cluster monitoring": "kubernetes",
         "Memcached": "memcached",
         "MySQL": "galera.master",
