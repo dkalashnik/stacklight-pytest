@@ -1,5 +1,6 @@
 import logging
 
+from stacklight_tests import settings
 from stacklight_tests import utils
 from stacklight_tests.tests.test_functional import wait_for_resource_status
 
@@ -11,6 +12,10 @@ class TestOpenstackMetrics(object):
         def _verify_notifications(q, v):
             output = prometheus_api.get_query(q)
             logger.info("Check {} in {}".format(v, output))
+            if not output:
+                logger.error('Empty results received, '
+                             'check a query {0}'.format(q))
+                return False
             return v in output[0]["value"]
         utils.wait(
             lambda: _verify_notifications(query, str(value)),
@@ -114,23 +119,25 @@ class TestOpenstackMetrics(object):
 
     def test_cinder_metrics(self, destructive, prometheus_api, os_clients):
         volume_name = utils.rand_name("volume-")
+        expected_volume_status = settings.VOLUME_STATUS
         client = os_clients.volume
         volume = client.volumes.create(size=1, name=volume_name)
-        wait_for_resource_status(client.volumes, volume.id, "error")
+        wait_for_resource_status(client.volumes, volume.id,
+                                 expected_volume_status)
         destructive.append(lambda: client.volume.delete(volume))
 
         volumes_count = len([vol for vol in client.volumes.list()])
         volumes_size = sum([vol.size for vol in client.volumes.list()]) * 10**9
 
-        count_query = ('{__name__="openstack_cinder_volumes",'
-                       'status="error"}')
+        count_query = ('{{__name__="openstack_cinder_volumes",'
+                       'status="{0}"}}'.format(expected_volume_status))
         err_count_msg = "Incorrect volume count in metric {}".format(
             count_query)
         self.check_openstack_metrics(
             prometheus_api, count_query, volumes_count, err_count_msg)
 
-        size_query = ('{__name__="openstack_cinder_volumes_size",'
-                      'status="error"}')
+        size_query = ('{{__name__="openstack_cinder_volumes_size",'
+                      'status="{0}"}'.format(expected_volume_status))
         error_size_msg = "Incorrect volume size in metric {}".format(
             size_query)
         self.check_openstack_metrics(
@@ -150,20 +157,11 @@ class TestOpenstackMetrics(object):
 
         err_msg = "Incorrect servers count in metric {}"
         for status in ["active", "error"]:
-            q1 = '{' + '__name__="openstack_nova_instances_{}"'.format(
-                status) + '}'
-            q2 = 'openstack_nova_{}'.format(status)
-            q3 = 'openstack_nova_instances{' + 'state="{}"'.format(
+            q = 'openstack_nova_instances{' + 'state="{}"'.format(
                 status) + '}'
             self.check_openstack_metrics(
-                prometheus_api, q1, get_servers_count(status.upper()),
-                err_msg.format(q1))
-            self.check_openstack_metrics(
-                prometheus_api, q2, get_servers_count(status.upper()),
-                err_msg.format(q2))
-            self.check_openstack_metrics(
-                prometheus_api, q3, get_servers_count(status.upper()),
-                err_msg.format(q3))
+                prometheus_api, q, get_servers_count(status.upper()),
+                err_msg.format(q))
 
     def test_nova_services_metrics(self, prometheus_api, cluster):
         controllers = filter(lambda x: "controller" in x.roles, cluster.hosts)
@@ -178,7 +176,7 @@ class TestOpenstackMetrics(object):
                     controller.hostname, service)
                 self.check_openstack_metrics(
                     prometheus_api,
-                    'openstack_nova_service{' + q + ',state="up"}',
+                    'openstack_nova_service{' + q + '}',
                     0, err_service_msg.format(service, controller.hostname))
         for compute in computes:
             for service in compute_services:
@@ -186,5 +184,5 @@ class TestOpenstackMetrics(object):
                     compute.hostname, service)
                 self.check_openstack_metrics(
                     prometheus_api,
-                    'openstack_nova_service{' + q + ',state="up"}',
+                    'openstack_nova_service{' + q + '}',
                     0, err_service_msg.format(service, compute.hostname))
