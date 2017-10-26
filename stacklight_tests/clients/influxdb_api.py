@@ -167,7 +167,7 @@ class InfluxdbApi(object):
             raise custom_exceptions.TimeoutError(e)
 
     def get_environment_name(self):
-        query = "show tag values from cpu_idle with key = environment_label"
+        query = "show tag values from cpu_usage_idle with key = host"
         return self.do_influxdb_query(
             query).json()["results"][0]["series"][0]["values"][0][1]
 

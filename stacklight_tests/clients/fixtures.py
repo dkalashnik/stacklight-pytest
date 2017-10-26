@@ -54,13 +54,13 @@ def nagios_client(nagios_config):
 
 
 @pytest.fixture(scope="session")
-def influxdb_client(config):
+def influxdb_client(influxdb_config):
     influxdb = influxdb_api.InfluxdbApi(
-        address=config["influxdb_vip"],
-        port=config["influxdb_port"],
-        username=config["influxdb_username"],
-        password=config["influxdb_password"],
-        db_name=config["influxdb_db_name"]
+        address=influxdb_config["influxdb_vip"],
+        port=influxdb_config["influxdb_port"],
+        username=influxdb_config["influxdb_username"],
+        password=influxdb_config["influxdb_password"],
+        db_name=influxdb_config["influxdb_db_name"]
     )
     return influxdb
 
