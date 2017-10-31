@@ -137,7 +137,7 @@ class TestOpenstackMetrics(object):
             prometheus_api, count_query, volumes_count, err_count_msg)
 
         size_query = ('{{__name__="openstack_cinder_volumes_size",'
-                      'status="{0}"}'.format(expected_volume_status))
+                      'status="{0}"}}'.format(expected_volume_status))
         error_size_msg = "Incorrect volume size in metric {}".format(
             size_query)
         self.check_openstack_metrics(
