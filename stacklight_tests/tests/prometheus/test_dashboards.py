@@ -17,7 +17,9 @@ ignored_queries_for_fail = [
 
 
 ignored_queries_for_partial_fail = [
-
+    # Haproxy connections are not present on all nodes
+    'max(haproxy_server_ssl_connections {host=~"$host"}) without(pid) > 0',
+    'max(haproxy_server_connections {host=~"$host"}) without(pid) > 0',
 ]
 
 
