@@ -64,6 +64,10 @@ def get_all_grafana_dashboards_names():
         "System": "linux",
         "Remote storage adapter": "influxdb",
         "Grafana": "grafana",
+        "Alertmanager": "prometheus",
+        "Zookeeper": "opencontrail",
+        "Main": "keystone",
+        "Pushgateway": "prometheus",
     }
 
     return {idfy_name(k): v for k, v in dashboards.items()}

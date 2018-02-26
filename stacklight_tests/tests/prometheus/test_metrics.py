@@ -77,8 +77,7 @@ class TestMetrics(object):
         assert expected_hostnames == []
 
     def test_prometheus_metrics(self, prometheus_api):
-        metric = prometheus_api.get_query(
-            "prometheus_local_storage_series_ops_total")
+        metric = prometheus_api.get_query("prometheus_build_info")
         assert len(metric) != 0
 
     @pytest.mark.parametrize("target,metrics", target_metrics.items(),
@@ -184,7 +183,8 @@ class TestMetrics(object):
                 "curl -s localhost:9126/metrics | awk '/^mysql/{print $1}'")
             hostname = host.hostname
             for metric in expected_metrics:
-                metric = metric + '{host="' + hostname + '"}'
+                metric = (metric + '{host="' + hostname +
+                          '",server="/var/run/mysqld/mysqld.sock"}')
                 err_msg = ("Metric {} not found in received list of mysql "
                            "metrics on {} node".format(metric, hostname))
                 assert metric in got_metrics, err_msg

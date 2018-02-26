@@ -101,7 +101,8 @@ class TemplatesTree(object):
                 if node.name == name)
 
     def find_closest_parent_level(self, dependencies):
-        return max(self.levels_by_name[dep] for dep in dependencies)
+        return max(self.levels_by_name[dep]
+                   for dep in dependencies) if dependencies else 0
 
     def get_closest_parents(self, dependencies):
         parent_level = self.find_closest_parent_level(dependencies)
