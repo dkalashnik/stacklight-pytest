@@ -13,6 +13,8 @@ ignored_queries_for_fail = [
 
     # By default metric is not present if no tracked value
     'irate(openstack_heat_http_response_times_count{http_status="5xx"}[5m])',
+    'max(haproxy_server_ssl_connections {host=~"$host"}) without(pid) > 0',
+    'max(haproxy_server_connections {host=~"$host"}) without(pid) > 0',
 ]
 
 
@@ -66,7 +68,6 @@ def get_all_grafana_dashboards_names():
         "Grafana": "grafana",
         "Alertmanager": "prometheus",
         "Zookeeper": "opencontrail",
-        "Main": "keystone",
         "Pushgateway": "prometheus",
     }
 
@@ -190,6 +191,8 @@ def test_grafana_dashboard_panel_queries(
 
 def test_panels_fixture(grafana_client):
     dashboards = grafana_client.get_all_dashboards_names()
+    # Workaround for Main dashboard
+    dashboards.remove("main")
     fixture_dashboards = get_all_grafana_dashboards_names().keys()
     missing_dashboards = set(dashboards).difference(set(fixture_dashboards))
 

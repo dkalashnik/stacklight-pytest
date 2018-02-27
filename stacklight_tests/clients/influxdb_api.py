@@ -44,13 +44,13 @@ class InfluxdbApi(object):
         # like "FROM /apache_workers/", so we should not check it
         return None
 
-    def do_influxdb_query(self, query, expected_codes=(200,)):
+    def do_influxdb_query(self, query, db="", expected_codes=(200,)):
         logger.debug('Query is: %s', query)
         response = check_http_get_response(
             url=urlparse.urljoin(self.influx_db_url, "query"),
             expected_codes=expected_codes,
             params={
-                "db": self.db_name,
+                "db": db if db else self.db_name,
                 "u": self.username,
                 "p": self.password,
                 "q": query})
@@ -169,11 +169,12 @@ class InfluxdbApi(object):
     def get_environment_name(self):
         query = "show tag values from cpu_usage_idle with key = host"
         return self.do_influxdb_query(
-            query).json()["results"][0]["series"][0]["values"][0][1]
+            db="prometheus", query=query).json()["results"][0]["series"][0][
+            "values"][0][1]
 
     def get_all_measurements(self):
-        measurements = (
-            self.do_influxdb_query("show measurements").json())["results"][0]
+        measurements = (self.do_influxdb_query(
+            db="prometheus", query="show measurements").json())["results"][0]
         measurements = {item[0]
                         for item in measurements["series"][0]["values"]}
         return measurements
