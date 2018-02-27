@@ -11,15 +11,13 @@ service_log_queries = {
 
     "neutron_agents":
         ("neutron.agent",
-         ['Logger:openstack.neutron AND programname:dhcp-agent',
-          'Logger:openstack.neutron AND programname:l3-agent',
-          'Logger:openstack.neutron AND programname:metadata-agent']),
+         ['Logger:openstack.neutron AND programname:neutron-server']),
 
     "glance":
         ("glance",
-         ['Logger:openstack.glance AND programname:api',
-          'Logger:glusterfs AND programname:glusterd',
-          'Logger:openstack.glance AND programname:registry']),
+         ['Logger:openstack.glance AND programname:glance-api',
+          'Logger:glusterfs* AND programname:glusterd',
+          'Logger:openstack.glance AND programname:glance-registry']),
 
     "keystone":
         ("keystone",
@@ -27,29 +25,20 @@ service_log_queries = {
 
     "heat":
         ("heat",
-         ['Logger:openstack.heat AND programname:heat']),
+         ['Logger:openstack.heat AND programname:heat-api']),
 
     "cinder":
         ("cinder",
-         ['Logger:openstack.cinder AND programname:cinder-api',
-          'Logger:openstack.cinder AND programname:cinder-backup',
-          'Logger:openstack.cinder AND programname:cinder-scheduler',
-          'Logger:openstack.cinder AND programname:cinder-volume',
-          'Logger:openstack.cinder AND programname:cinder-manage']),
+         ['Logger:openstack.cinder AND programname:cinder-wsgi']),
 
     "nova":
         ("nova",
          ['Logger:openstack.nova AND programname:nova-api',
-          'Logger:openstack.nova AND programname:nova-compute',
           'Logger:openstack.nova AND programname:nova-scheduler']),
 
     "rabbitmq":
         ("rabbitmq",
          ['Logger:rabbitmq* AND programname:rabbitmq']),
-
-    "horizon":
-        ("horizon",
-         ['Logger:openstack.horizon AND programname:openstack.horizon']),
 
     "system":
         ("linux",
@@ -59,17 +48,16 @@ service_log_queries = {
 
     "zookeeper":
         ("opencontrail",
-         ['Logger:contrail.zookeeper AND programname:zookeeper']),
+         ['Logger:opencontrail.zookeeper AND programname:zookeeper']),
 
     "cassandra":
         ("opencontrail",
-         ['Logger:contrail.cassandra.system AND programname:cassandra',
-          'Logger:contrail.cassandra.status AND programname:cassandra']),
+         ['Logger:opencontrail.cassandra.* AND programname:cassandra']),
 
     "contrail":
         ("opencontrail",
-         ['Logger:contrail.alarm*',
-          'Logger:contrail.discovery*'])
+         ['Logger:opencontrail.contrail-alarm*',
+          'Logger:opencontrail.contrail-discovery*'])
 }
 
 
