@@ -99,45 +99,16 @@ class TestMetrics(object):
             pytest.skip("There are no kubernetes nodes in the cluster")
 
         metrics = [
-            'kubelet_runtime_operations_latency_microseconds_count',
-            'kubelet_runtime_operations_latency_microseconds',
-            'kubelet_containers_per_pod_count_sum',
-            'kubelet_running_pod_count', 'kubernetes_build_info',
-            'kubelet_pod_start_latency_microseconds_count',
-            'kubelet_sync_pods_latency_microseconds',
-            'kubelet_pleg_relist_latency_microseconds_count',
-            'kubelet_generate_pod_status_latency_microseconds_sum',
-            'kubelet_containers_per_pod_count_count',
-            'kubelet_pod_start_latency_microseconds_sum',
-            'kubelet_pod_worker_start_latency_microseconds',
-            'kubelet_containers_per_pod_count', 'kubelet_runtime_operations',
-            'kubelet_sync_pods_latency_microseconds_count',
-            'kubelet_sync_pods_latency_microseconds_sum',
-            'kubelet_running_container_count',
-            'kubelet_pleg_relist_interval_microseconds',
-            'kubelet_generate_pod_status_latency_microseconds',
-            'kubelet_cgroup_manager_latency_microseconds',
-            'kubelet_pleg_relist_interval_microseconds_sum',
-            'kubelet_pod_worker_start_latency_microseconds_count',
-            'kubelet_pod_worker_start_latency_microseconds_sum',
-            'kubelet_pleg_relist_interval_microseconds_count',
-            'kubelet_pleg_relist_latency_microseconds_sum',
-            'kubelet_cgroup_manager_latency_microseconds_count',
-            'kubelet_generate_pod_status_latency_microseconds_count',
-            'kubelet_pleg_relist_latency_microseconds',
-            'kubelet_pod_start_latency_microseconds',
-            'kubelet_runtime_operations_latency_microseconds_sum',
-            'kubelet_cgroup_manager_latency_microseconds_sum'
+            'container_memory_cache', 'container_network_receive_bytes_total',
+            'container_tasks_state'
         ]
-        expected_hostnames = [node.hostname for node in nodes]
 
-        for hostname in expected_hostnames:
-            q = ('{{__name__=~"^kube.*", host="{}"}}'.format(hostname))
-            logger.info("Waiting to get all metrics")
-            msg = "Timed out waiting to get all metrics"
-            utils.wait(
-                lambda: self.verify_notifications(prometheus_api, metrics, q),
-                timeout=5 * 60, interval=10, timeout_msg=msg)
+        for metric in metrics:
+            q = ('{{__name__=~"{}"}}'.format(metric))
+            output = prometheus_api.get_query(q)
+            logger.info("Waiting to get metric {}".format(metric))
+            msg = "Metric {} not found".format(metric)
+            assert len(output) != 0, msg
 
     def test_mysql_metrics(self, cluster):
         mysql_hosts = cluster.filter_by_role("galera")

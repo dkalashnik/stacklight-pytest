@@ -17,17 +17,15 @@ class ElasticSearchApi(object):
 
     def query_elasticsearch(self, index_type="log", time_range="now-1h",
                             query_filter="*", size=100):
-        all_indices = self.es.indices.get_aliases().keys()
-        indices = filter(lambda x: index_type in x, sorted(all_indices))
         return self.es.search(
-            index=indices,
-            body={
-                "query": {"filtered": {
-                    "query": {"bool": {"should": {"query_string": {
-                        "query": query_filter}}}},
-                    "filter": {"bool": {"must": {"range": {
-                        "Timestamp": {"from": time_range}}}}}}},
-                "size": size})
+            index="log-*",
+            body={"query": {
+                "query_string": {
+                    "fields": ["Logger", "programname"],
+                    "query": query_filter
+                }
+            }
+            })
 
     def check_notifications(self, expected_notifications,
                             index_type="notification", timeout=5 * 60,
@@ -57,6 +55,16 @@ class ElasticSearchApi(object):
     def get_absent_programs_for_group(self, program_group, **kwargs):
         return {program for program in program_group
                 if not self.log_is_presented(program, **kwargs)}
+
+    def return_loggers(self):
+        output = self.es.search(
+            index="log-*",
+            body={"size": "0",
+                  "aggs": {
+                      "uniq_logger": {
+                          "terms": {"field": "Logger.keyword", "size": 500}}}})
+        return [log["key"] for log in
+                output["aggregations"]["uniq_logger"]["buckets"]]
 
 
 class KibanaApi(object):
