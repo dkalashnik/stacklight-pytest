@@ -34,8 +34,7 @@ class TestInfluxDbSmoke(object):
         service = "influxdb"
         check_service_installed(cluster, service)
         check_service_running(cluster, service)
-        measurements, env_name = influxdb_client.check_influxdb_online()
-        assert measurements and env_name
+        influxdb_client.check_influxdb_online()
 
     def test_influxdb_relay_installed(self, cluster):
         """Smoke test that checks basic features of InfluxDb.
