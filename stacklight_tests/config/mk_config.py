@@ -35,13 +35,15 @@ class MKConfig(object):
                       if cluster_name in k}
         LOG.info("Load nodes: {}".format(self.nodes.keys()))
 
-    def get_application_node(self, application):
+    def get_application_node(self, applications):
+        if isinstance(applications, basestring):
+            applications = [applications]
         for fqdn, node in self.nodes.items():
             # LOG.info("Check application {} for node {}".
             #          format(application, fqdn))
-            if application in node["applications"]:
-                LOG.info("Found application {} for node {}".
-                         format(application, fqdn))
+            if all(app in node["applications"] for app in applications):
+                LOG.info("Found applications {} for node {}".
+                         format(applications, fqdn))
                 return node
         raise NoApplication()
 
@@ -159,7 +161,7 @@ class MKConfig(object):
         def get_port(input_line):
             return input_line["ports"][0].split(":")[0]
 
-        _param = self.get_application_node("prometheus_server")['parameters']
+        _param = self.get_application_node(["prometheus_server", "service.docker.client"])['parameters']
         expose_params = (
             _param["docker"]["client"]["stack"]["monitoring"]["service"])
 
