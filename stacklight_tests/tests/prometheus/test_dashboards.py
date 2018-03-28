@@ -13,8 +13,6 @@ ignored_queries_for_fail = [
 
     # By default metric is not present if no tracked value
     'irate(openstack_heat_http_response_times_count{http_status="5xx"}[5m])',
-    'max(haproxy_server_ssl_connections {host=~"$host"}) without(pid) > 0',
-    'max(haproxy_server_connections {host=~"$host"}) without(pid) > 0',
 ]
 
 
