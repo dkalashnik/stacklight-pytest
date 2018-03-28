@@ -33,9 +33,12 @@ class TestOpenstackMetrics(object):
         client.images.upload(image.id, "dummy_data")
         wait_for_resource_status(client.images, image.id, "active")
         destructive.append(lambda: client.images.delete(image.id))
+        filter = {"visibility": "public"}
 
-        images_count = len([im for im in client.images.list()])
-        images_size = sum([im["size"] for im in client.images.list()])
+        images_count = len([im for im in client.images.list(
+                            filters=filter)])
+        images_size = sum([im["size"] for im in client.images.list(
+                           filters=filter)])
 
         count_query = ('{__name__="openstack_glance_images",'
                        'visibility="public",status="active"}')
@@ -125,9 +128,12 @@ class TestOpenstackMetrics(object):
         wait_for_resource_status(client.volumes, volume.id,
                                  expected_volume_status)
         destructive.append(lambda: client.volume.delete(volume))
+        filter = {'status': expected_volume_status, 'all_tenants': 1}
 
-        volumes_count = len([vol for vol in client.volumes.list()])
-        volumes_size = sum([vol.size for vol in client.volumes.list()]) * 10**9
+        volumes_count = len([vol for vol in client.volumes.list(
+                             search_opts=filter)])
+        volumes_size = sum([vol.size for vol in client.volumes.list(
+                            search_opts=filter)]) * 10**9
 
         count_query = ('{{__name__="openstack_cinder_volumes",'
                        'status="{0}"}}'.format(expected_volume_status))
